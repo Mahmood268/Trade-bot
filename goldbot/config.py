@@ -1,0 +1,497 @@
+"""Configuration schema and loader.
+
+Every tunable number in the system lives here and nowhere else. The schema is
+validated with pydantic at startup: the bot refuses to run on a config that is
+internally inconsistent or dangerous, rather than discovering the problem with
+real money on the line.
+
+Design rules enforced by this module:
+
+* Secrets are never committed. ``config/config.yaml`` is gitignored; only
+  ``config/config.example.yaml`` is in version control.
+* Live trading requires two independent opt-ins (``dry_run: false`` *and* the
+  exact ``live_confirm`` phrase). One typo cannot arm real money.
+* ``weekly_target_pct`` is a REPORTING benchmark only. Nothing in the trading
+  path reads it, so a return goal can never push the bot into over-trading to
+  "catch up".
+"""
+
+from __future__ import annotations
+
+import os
+import re
+from datetime import time as dt_time
+from pathlib import Path
+from typing import Any, Literal
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+# The exact phrase that must appear in config to permit real-money orders.
+LIVE_CONFIRM_PHRASE = "I_UNDERSTAND_THIS_TRADES_REAL_MONEY"
+
+# Absolute ceiling on risk per trade. Not configurable: a value above this is
+# treated as a typo or a moment of bad judgement, and the bot refuses to start.
+MAX_ALLOWED_RISK_PCT = 5.0
+
+_ENV_PATTERN = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
+
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+
+
+class _Base(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class MT5Config(_Base):
+    """Connection details for the MetaTrader 5 terminal."""
+
+    login: int | None = Field(
+        default=None, description="Demo/live account number. None = use the terminal's current login."
+    )
+    password: str | None = Field(default=None, description="Account password (supports ${ENV_VAR}).")
+    server: str | None = Field(default=None, description="Broker server name, e.g. 'ICMarkets-Demo'.")
+    terminal_path: str | None = Field(
+        default=None, description="Path to terminal64.exe. None = MT5 auto-discovers it."
+    )
+
+    symbol: str | None = Field(
+        default=None,
+        description="Explicit gold symbol. None = auto-discover from symbol_candidates.",
+    )
+    symbol_candidates: tuple[str, ...] = Field(
+        default=(
+            "XAUUSD",
+            "XAUUSD.m",
+            "XAUUSDm",
+            "XAUUSD.raw",
+            "XAUUSD_o",
+            "XAUUSD.a",
+            "XAUUSDc",
+            "GOLD",
+            "GOLD.m",
+            "Gold",
+        ),
+        description="Probed in order; the first tradable match wins. Brokers name gold differently.",
+    )
+
+    magic: int = Field(
+        default=20260907,
+        ge=1,
+        description="Magic number tagging our orders. The bot only ever touches positions "
+        "carrying this number, so your manual trades are invisible to it.",
+    )
+    deviation_points: int = Field(
+        default=20, ge=0, le=500, description="Max slippage tolerated on market orders, in points."
+    )
+    connect_timeout_s: float = Field(default=30.0, gt=0)
+
+
+class RiskConfig(_Base):
+    """Hard risk limits. The Risk Warden enforces these; no agent can override them."""
+
+    risk_per_trade_pct: float = Field(
+        default=1.0,
+        gt=0,
+        le=MAX_ALLOWED_RISK_PCT,
+        description="Percent of equity risked per trade, measured to the stop loss.",
+    )
+    daily_loss_limit_pct: float = Field(
+        default=4.0,
+        gt=0,
+        le=20.0,
+        description="Realised loss vs start-of-day equity that halts trading for the day.",
+    )
+    equity_floor_pct: float = Field(
+        default=80.0,
+        gt=0,
+        lt=100.0,
+        description="Percent of starting balance below which the bot halts permanently "
+        "until manually cleared.",
+    )
+    max_consecutive_losses: int = Field(
+        default=5, ge=1, le=50, description="Halt and alert after this many losses in a row."
+    )
+    max_open_positions: int = Field(default=2, ge=1, le=10)
+    max_lot: float = Field(
+        default=1.0, gt=0, description="Absolute lot ceiling, whatever the sizing math says."
+    )
+    max_spread_points: int = Field(
+        default=30,
+        gt=0,
+        description="Skip entries when the spread exceeds this. Gold spreads blow out around "
+        "news and in the Asian session; this is the single most important scalping filter.",
+    )
+    max_daily_trades: int = Field(
+        default=10, ge=1, le=200, description="Hard cap on entries per day. Anti-overtrading."
+    )
+    min_stop_points: int = Field(
+        default=100,
+        gt=0,
+        description="Reject setups whose stop is tighter than this — spread noise would "
+        "stop them out regardless of direction.",
+    )
+
+
+class StrategyConfig(_Base):
+    """Parameters for the deterministic signal generator."""
+
+    timeframe: Literal["M5", "M15", "M30", "H1"] = Field(
+        default="M15",
+        description="M15 is the default: gold's spread-to-move ratio is more survivable "
+        "here than on M5.",
+    )
+    fast_ema: int = Field(default=20, ge=2, le=200)
+    trend_ema: int = Field(default=50, ge=5, le=400)
+    slow_ema: int = Field(default=200, ge=20, le=1000)
+    atr_period: int = Field(default=14, ge=2, le=100)
+    adx_period: int = Field(default=14, ge=2, le=100)
+    min_adx: float = Field(
+        default=20.0, ge=0, le=100, description="Below this, treat the market as rangebound."
+    )
+    atr_stop_multiple: float = Field(default=1.5, gt=0, le=10)
+    tp_r_multiple: float = Field(default=2.0, gt=0, le=20, description="Take profit in R multiples.")
+    breakeven_at_r: float | None = Field(
+        default=1.0, gt=0, description="Move stop to entry once price reaches this R. None = off."
+    )
+    trail_after_r: float | None = Field(
+        default=1.5, gt=0, description="Begin ATR trailing after this R. None = off."
+    )
+    trail_atr_multiple: float = Field(default=2.0, gt=0, le=10)
+    one_entry_per_bar: bool = Field(default=True)
+
+
+class SessionWindow(_Base):
+    """A trading window in exchange-neutral wall clock time (see SessionConfig.timezone)."""
+
+    name: str
+    start: str = Field(description="HH:MM, 24h")
+    end: str = Field(description="HH:MM, 24h")
+
+    @model_validator(mode="after")
+    def _check_times(self) -> "SessionWindow":
+        for label, value in (("start", self.start), ("end", self.end)):
+            if not _TIME_RE.match(value):
+                raise ValueError(f"session window {self.name!r}: {label}={value!r} is not HH:MM")
+        if self.start_time >= self.end_time:
+            raise ValueError(
+                f"session window {self.name!r}: start {self.start} must be before end {self.end}"
+            )
+        return self
+
+    @property
+    def start_time(self) -> dt_time:
+        h, m = self.start.split(":")
+        return dt_time(int(h), int(m))
+
+    @property
+    def end_time(self) -> dt_time:
+        h, m = self.end.split(":")
+        return dt_time(int(h), int(m))
+
+
+class SessionConfig(_Base):
+    """When the bot is allowed to open new positions."""
+
+    timezone: str = Field(
+        default="Europe/London", description="IANA timezone the windows below are expressed in."
+    )
+    windows: tuple[SessionWindow, ...] = Field(
+        default=(
+            SessionWindow(name="london", start="08:00", end="12:00"),
+            SessionWindow(name="ny_overlap", start="13:30", end="17:00"),
+        ),
+        min_length=1,
+    )
+    trade_days: tuple[int, ...] = Field(
+        default=(0, 1, 2, 3, 4),
+        description="Weekdays the bot may enter trades (Mon=0 … Sun=6).",
+    )
+    flatten_before_weekend: bool = Field(
+        default=True, description="Close everything before the Friday close — no weekend gap risk."
+    )
+    friday_close: str = Field(default="20:00", description="HH:MM in `timezone`.")
+
+    @model_validator(mode="after")
+    def _check(self) -> "SessionConfig":
+        if not _TIME_RE.match(self.friday_close):
+            raise ValueError(f"friday_close={self.friday_close!r} is not HH:MM")
+        for day in self.trade_days:
+            if not 0 <= day <= 6:
+                raise ValueError(f"trade_days entry {day} out of range 0-6")
+        return self
+
+
+class CalendarConfig(_Base):
+    """Deterministic economic-event blackouts. No LLM involved — timing is a lookup."""
+
+    enabled: bool = Field(default=True)
+    feed_url: str = Field(default="https://nfs.faireconomy.media/ff_calendar_thisweek.json")
+    refresh_hours: int = Field(
+        default=24,
+        ge=1,
+        description="The feed rate-limits aggressive downloading, so it is cached on disk "
+        "and refreshed at most this often.",
+    )
+    impacts: tuple[str, ...] = Field(
+        default=("High",), description="Impact levels that trigger a blackout."
+    )
+    currencies: tuple[str, ...] = Field(
+        default=("USD",), description="Gold is priced in USD; USD events move it most."
+    )
+    blackout_before_min: int = Field(default=15, ge=0, le=240)
+    blackout_after_min: int = Field(default=15, ge=0, le=240)
+    close_positions_before_event: bool = Field(
+        default=False,
+        description="If true, flatten open positions ahead of a high-impact event rather "
+        "than merely blocking new entries.",
+    )
+
+
+class AgentConfig(_Base):
+    """One LLM agent's model, cadence and failure policy."""
+
+    enabled: bool = Field(default=False)
+    model: str = Field(default="claude-opus-5")
+    timeout_s: float = Field(default=45.0, gt=0, le=600)
+    max_tokens: int = Field(default=4000, ge=256, le=64000)
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = Field(default="high")
+    min_interval_s: int = Field(
+        default=0,
+        ge=0,
+        description="Floor between calls. Agents are event-driven; this is a cost backstop "
+        "so a noisy trigger cannot run up the bill.",
+    )
+    cache_ttl_s: int = Field(
+        default=3600,
+        ge=0,
+        description="How long this agent's output stays usable. Past it the output is treated "
+        "as 'no view' — never silently reused as if fresh.",
+    )
+
+
+class AgentsConfig(_Base):
+    """The agent roster.
+
+    Model choice per agent is deliberate. The two high-volume, low-judgement agents
+    run on Sonnet 5; every agent that touches a money decision runs on Opus 5.
+    All are event-driven rather than polling — see docs/AGENTS.md for why that
+    matters more than model choice for the API bill.
+    """
+
+    api_key_env: str = Field(
+        default="ANTHROPIC_API_KEY",
+        description="Environment variable holding the Anthropic key. The key itself is never "
+        "written to config.",
+    )
+
+    news_scout: AgentConfig = Field(
+        default=AgentConfig(model="claude-sonnet-5", effort="medium", cache_ttl_s=3600)
+    )
+    regime_analyst: AgentConfig = Field(
+        default=AgentConfig(model="claude-sonnet-5", effort="medium", cache_ttl_s=14400)
+    )
+    decision: AgentConfig = Field(default=AgentConfig(model="claude-opus-5", effort="high"))
+    devils_advocate: AgentConfig = Field(
+        default=AgentConfig(
+            model="claude-opus-5",
+            effort="high",
+        )
+    )
+    trade_manager: AgentConfig = Field(
+        default=AgentConfig(model="claude-opus-5", effort="medium", min_interval_s=300)
+    )
+    reviewer: AgentConfig = Field(
+        default=AgentConfig(model="claude-opus-5", effort="high", max_tokens=16000)
+    )
+
+    daily_cost_limit_usd: float = Field(
+        default=3.0,
+        gt=0,
+        description="Stop calling agents once the day's estimated API spend exceeds this. "
+        "On a small account, API cost is a real drag on returns.",
+    )
+    fail_closed: bool = Field(
+        default=True,
+        description="API error, timeout, malformed output or a refusal ⇒ no trade. Missing a "
+        "trade is free; an unreviewed trade is not.",
+    )
+
+
+class TelegramConfig(_Base):
+    enabled: bool = Field(default=False)
+    bot_token: str | None = Field(default=None, description="From @BotFather (supports ${ENV_VAR}).")
+    chat_id: str | None = Field(default=None, description="From @userinfobot.")
+    alert_on_trades: bool = Field(default=True)
+    alert_on_errors: bool = Field(default=True)
+    allow_commands: bool = Field(
+        default=True, description="Enable /status /pause /resume /flat /pnl from your phone."
+    )
+
+
+class ReportingConfig(_Base):
+    """Benchmarks and output paths. Nothing here is read by the trading path."""
+
+    weekly_target_pct_min: float = Field(
+        default=3.0,
+        ge=0,
+        description="Your stated weekly goal, reported against — never acted on. The trading "
+        "logic cannot see this value.",
+    )
+    weekly_target_pct_max: float = Field(default=5.0, ge=0)
+    journal_db: str = Field(default="data/journal.db")
+    reports_dir: str = Field(default="reports")
+    log_dir: str = Field(default="logs")
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
+
+    @model_validator(mode="after")
+    def _check(self) -> "ReportingConfig":
+        if self.weekly_target_pct_max < self.weekly_target_pct_min:
+            raise ValueError("weekly_target_pct_max must be >= weekly_target_pct_min")
+        return self
+
+
+class Config(_Base):
+    """Root configuration."""
+
+    dry_run: bool = Field(
+        default=True,
+        description="True = full pipeline runs and journals decisions but sends NO orders. "
+        "This is the shipped default and where you should spend your first days.",
+    )
+    live_confirm: str | None = Field(
+        default=None,
+        description=f"Must be exactly {LIVE_CONFIRM_PHRASE!r} to permit real orders. "
+        "Second independent opt-in alongside dry_run.",
+    )
+
+    mt5: MT5Config = Field(default_factory=MT5Config)
+    risk: RiskConfig = Field(default_factory=RiskConfig)
+    strategy: StrategyConfig = Field(default_factory=StrategyConfig)
+    sessions: SessionConfig = Field(default_factory=SessionConfig)
+    calendar: CalendarConfig = Field(default_factory=CalendarConfig)
+    agents: AgentsConfig = Field(default_factory=AgentsConfig)
+    telegram: TelegramConfig = Field(default_factory=TelegramConfig)
+    reporting: ReportingConfig = Field(default_factory=ReportingConfig)
+
+    @model_validator(mode="after")
+    def _cross_field_checks(self) -> "Config":
+        risk = self.risk
+
+        # Arming real money takes two independent, deliberate actions.
+        if not self.dry_run and self.live_confirm != LIVE_CONFIRM_PHRASE:
+            raise ValueError(
+                "dry_run is false but live_confirm is not set to the exact phrase "
+                f"{LIVE_CONFIRM_PHRASE!r}. Refusing to start: live trading requires two "
+                "independent confirmations so a single typo cannot arm real money."
+            )
+
+        # A daily cap at or below single-trade risk means one normal loss halts the
+        # day — almost always a misconfiguration rather than an intent.
+        if risk.daily_loss_limit_pct <= risk.risk_per_trade_pct:
+            raise ValueError(
+                f"daily_loss_limit_pct ({risk.daily_loss_limit_pct}) must exceed "
+                f"risk_per_trade_pct ({risk.risk_per_trade_pct}); otherwise a single "
+                "ordinary losing trade halts trading for the day."
+            )
+
+        # Concurrent positions each risk the full per-trade amount. If their combined
+        # risk exceeds the daily cap, the cap can be breached in one adverse move.
+        combined = risk.risk_per_trade_pct * risk.max_open_positions
+        if combined > risk.daily_loss_limit_pct:
+            raise ValueError(
+                f"max_open_positions ({risk.max_open_positions}) x risk_per_trade_pct "
+                f"({risk.risk_per_trade_pct}) = {combined:.2f}% of equity at risk "
+                f"simultaneously, which exceeds daily_loss_limit_pct "
+                f"({risk.daily_loss_limit_pct}). One adverse move would blow through the "
+                "daily cap before it can halt anything."
+            )
+
+        if risk.equity_floor_pct >= 100 - risk.daily_loss_limit_pct:
+            raise ValueError(
+                f"equity_floor_pct ({risk.equity_floor_pct}) leaves less room than a single "
+                f"day's permitted loss ({risk.daily_loss_limit_pct}%); the floor would trip "
+                "on day one."
+            )
+
+        strat = self.strategy
+        if strat.fast_ema >= strat.trend_ema or strat.trend_ema >= strat.slow_ema:
+            raise ValueError(
+                f"EMA periods must be strictly increasing: fast ({strat.fast_ema}) < "
+                f"trend ({strat.trend_ema}) < slow ({strat.slow_ema})"
+            )
+        if strat.breakeven_at_r is not None and strat.breakeven_at_r >= strat.tp_r_multiple:
+            raise ValueError(
+                f"breakeven_at_r ({strat.breakeven_at_r}) must be below tp_r_multiple "
+                f"({strat.tp_r_multiple}), or the take profit fires first and break-even is dead code."
+            )
+        if (
+            strat.trail_after_r is not None
+            and strat.breakeven_at_r is not None
+            and strat.trail_after_r < strat.breakeven_at_r
+        ):
+            raise ValueError(
+                f"trail_after_r ({strat.trail_after_r}) must be at or above breakeven_at_r "
+                f"({strat.breakeven_at_r}); trailing before break-even would widen risk."
+            )
+
+        if self.telegram.enabled and not (self.telegram.bot_token and self.telegram.chat_id):
+            raise ValueError(
+                "telegram.enabled is true but bot_token/chat_id are missing. Set them, or "
+                "disable Telegram — a kill switch you think exists but doesn't is worse than none."
+            )
+
+        return self
+
+    @property
+    def live_orders_armed(self) -> bool:
+        """True only when both independent live-trading opt-ins are satisfied."""
+        return not self.dry_run and self.live_confirm == LIVE_CONFIRM_PHRASE
+
+
+def _expand_env(value: Any) -> Any:
+    """Recursively replace exact ``${VAR}`` strings with their environment value.
+
+    Keeps secrets out of the config file: write ``password: ${MT5_PASSWORD}`` and
+    set the variable in the OS. A referenced-but-unset variable is an error rather
+    than a silent empty string, which would otherwise surface as a puzzling login
+    failure at the broker.
+    """
+    if isinstance(value, dict):
+        return {k: _expand_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_expand_env(v) for v in value]
+    if isinstance(value, str):
+        match = _ENV_PATTERN.match(value.strip())
+        if match:
+            name = match.group(1)
+            if name not in os.environ:
+                raise ValueError(
+                    f"config references environment variable ${{{name}}} but it is not set"
+                )
+            return os.environ[name]
+    return value
+
+
+def load_config(path: str | Path = "config/config.yaml") -> Config:
+    """Load, env-expand and validate the config file.
+
+    Raises ``FileNotFoundError`` with actionable guidance if the file is missing,
+    and ``pydantic.ValidationError`` (with the specific field named) if any value
+    or combination of values is unsafe.
+    """
+    config_path = Path(path)
+    if not config_path.exists():
+        raise FileNotFoundError(
+            f"Config not found at {config_path}. Copy config/config.example.yaml to "
+            f"{config_path} and fill in your MT5 credentials. The real config is "
+            "gitignored so your credentials never reach the repository."
+        )
+
+    with config_path.open("r", encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh) or {}
+
+    if not isinstance(raw, dict):
+        raise ValueError(f"{config_path} must contain a YAML mapping at the top level")
+
+    return Config.model_validate(_expand_env(raw))

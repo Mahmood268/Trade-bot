@@ -1,0 +1,20 @@
+# Core dependencies for the gold trading bot.
+#
+# NOTE: MetaTrader5 is Windows-only. It is listed with an environment marker so
+# `pip install -r requirements.txt` works on Linux/macOS for development,
+# backtesting and running the test suite — it simply skips the MT5 wheel there.
+# On your Windows PC it installs normally and the bot can trade.
+
+MetaTrader5>=5.0.45 ; platform_system == "Windows"
+
+pandas>=2.1
+numpy>=1.26
+pydantic>=2.6
+PyYAML>=6.0
+requests>=2.31
+anthropic>=0.40
+pyarrow>=15.0
+
+# Testing / dev
+pytest>=8.0
+pytest-mock>=3.12

@@ -1,0 +1,244 @@
+# =============================================================================
+# goldbot configuration — EXAMPLE
+#
+# Copy this file to config/config.yaml and fill in your details:
+#     copy config\config.example.yaml config\config.yaml     (Windows)
+#     cp   config/config.example.yaml config/config.yaml     (Linux/macOS)
+#
+# config/config.yaml is gitignored — your credentials never reach the repo.
+#
+# Any value may be written as ${ENV_VAR} to pull it from an environment
+# variable instead of storing it in this file. Recommended for passwords.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# SAFETY — read this section before anything else
+# -----------------------------------------------------------------------------
+# dry_run: true  → the full pipeline runs, every decision is journalled, and NO
+#                  orders are ever sent. Start here. Stay here for days.
+#
+# Sending real orders needs BOTH of the following, deliberately separate so that
+# one typo cannot arm real money:
+#     dry_run: false
+#     live_confirm: "I_UNDERSTAND_THIS_TRADES_REAL_MONEY"
+dry_run: true
+live_confirm: null
+
+# -----------------------------------------------------------------------------
+# MetaTrader 5 connection
+# -----------------------------------------------------------------------------
+mt5:
+  # Leave login/password/server as null to use whatever account the MT5 terminal
+  # is already logged into. Filling them in makes the bot log in explicitly,
+  # which is safer: it can never attach to the wrong account by accident.
+  login: null                     # e.g. 51234567
+  password: ${MT5_PASSWORD}       # set MT5_PASSWORD in your environment
+  server: null                    # e.g. "ICMarketsSC-Demo"
+  terminal_path: null             # e.g. "C:/Program Files/MetaTrader 5/terminal64.exe"
+
+  # Gold is named differently at every broker. Leave `symbol` null and the bot
+  # probes the candidates below, picking the first one that is actually tradable.
+  # scripts/check_connection.py prints which one it found.
+  symbol: null
+  symbol_candidates:
+    - XAUUSD
+    - XAUUSD.m
+    - XAUUSDm
+    - XAUUSD.raw
+    - XAUUSD_o
+    - XAUUSD.a
+    - XAUUSDc
+    - GOLD
+    - GOLD.m
+    - Gold
+
+  # Tags our orders. The bot only ever reads, modifies or closes positions
+  # carrying this number — trades you place by hand are invisible to it.
+  magic: 20260907
+  deviation_points: 20
+  connect_timeout_s: 30.0
+
+# -----------------------------------------------------------------------------
+# RISK — the Risk Warden enforces every value here. No AI agent can override it.
+# -----------------------------------------------------------------------------
+risk:
+  # Percent of equity risked per trade, measured to the stop loss.
+  # On a $5,000 account, 1.0 = $50 risked per trade.
+  risk_per_trade_pct: 1.0
+
+  # Realised loss vs start-of-day equity that closes everything and halts
+  # trading until the next day.
+  daily_loss_limit_pct: 4.0
+
+  # Percent of starting balance below which the bot halts permanently until you
+  # clear it by hand. 80.0 = stop after a 20% total drawdown.
+  equity_floor_pct: 80.0
+
+  # Halt and alert after this many losing trades in a row. Requires /resume.
+  max_consecutive_losses: 5
+
+  max_open_positions: 2
+  max_lot: 1.0
+
+  # THE most important scalping filter. Gold's spread widens hard around news
+  # and in the Asian session; entering then is how scalping accounts bleed out.
+  # Run scripts/check_connection.py during your session to see typical values.
+  max_spread_points: 30
+
+  max_daily_trades: 10
+
+  # Reject setups whose stop is tighter than this — spread noise alone would
+  # stop them out regardless of which way price goes.
+  min_stop_points: 100
+
+# -----------------------------------------------------------------------------
+# STRATEGY — the deterministic signal generator (agents cannot change these)
+# -----------------------------------------------------------------------------
+strategy:
+  timeframe: M15          # M5 | M15 | M30 | H1
+  fast_ema: 20
+  trend_ema: 50
+  slow_ema: 200
+  atr_period: 14
+  adx_period: 14
+  min_adx: 20.0           # below this the market is treated as rangebound
+  atr_stop_multiple: 1.5  # stop distance = 1.5 x ATR
+  tp_r_multiple: 2.0      # take profit at 2x the risked distance
+  breakeven_at_r: 1.0     # move stop to entry at +1R (null to disable)
+  trail_after_r: 1.5      # start ATR trailing at +1.5R (null to disable)
+  trail_atr_multiple: 2.0
+  one_entry_per_bar: true
+
+# -----------------------------------------------------------------------------
+# SESSIONS — when new entries are permitted (times in the timezone below)
+# -----------------------------------------------------------------------------
+sessions:
+  timezone: Europe/London
+  windows:
+    - name: london
+      start: "08:00"
+      end: "12:00"
+    - name: ny_overlap
+      start: "13:30"
+      end: "17:00"
+  trade_days: [0, 1, 2, 3, 4]     # Mon=0 … Sun=6
+  flatten_before_weekend: true    # no weekend gap risk
+  friday_close: "20:00"
+
+# -----------------------------------------------------------------------------
+# ECONOMIC CALENDAR — deterministic blackouts, no AI involved
+# -----------------------------------------------------------------------------
+calendar:
+  enabled: true
+  feed_url: https://nfs.faireconomy.media/ff_calendar_thisweek.json
+  refresh_hours: 24               # the feed rate-limits frequent downloads
+  impacts: [High]
+  currencies: [USD]
+  blackout_before_min: 15
+  blackout_after_min: 15
+  # true = also close open positions ahead of a high-impact event.
+  # false = only block new entries (existing trades keep their stops).
+  close_positions_before_event: false
+
+# -----------------------------------------------------------------------------
+# AI AGENTS
+#
+# All are disabled by default so the deterministic core can be proven first.
+# Enable them in the staged order described in docs/AGENTS.md.
+#
+# Model choice is deliberate: the two high-volume, low-judgement agents run on
+# Sonnet 5; every agent touching a money decision runs on Opus 5. Agents are
+# EVENT-DRIVEN, not polling — that matters more for the API bill than model
+# choice does.
+#
+# The API key is read from the environment, never stored here.
+# -----------------------------------------------------------------------------
+agents:
+  api_key_env: ANTHROPIC_API_KEY
+
+  # 1. Reads live gold/USD/rates coverage → structured news brief. Advisory only.
+  news_scout:
+    enabled: false
+    model: claude-sonnet-5
+    effort: medium
+    timeout_s: 60.0
+    max_tokens: 4000
+    cache_ttl_s: 3600       # past this the brief is "no view", never stale-but-trusted
+
+  # 2. Interprets H4/D1 structure and volatility → regime label. May only REDUCE risk.
+  regime_analyst:
+    enabled: false
+    model: claude-sonnet-5
+    effort: medium
+    timeout_s: 45.0
+    cache_ttl_s: 14400
+
+  # 3. The main decision maker. May only APPROVE / VETO / REDUCE.
+  decision:
+    enabled: false
+    model: claude-opus-5
+    effort: high
+    timeout_s: 45.0
+
+  # 4. Devil's advocate: argues the case against each proposed trade. It is
+  #    explicitly allowed to report "no material objection" — a challenger forced
+  #    to always disagree produces noise, not scrutiny. A material objection
+  #    vetoes or shrinks the trade, so no third arbiter is needed.
+  devils_advocate:
+    enabled: false
+    model: claude-opus-5
+    effort: high
+    timeout_s: 45.0
+
+  # 5. Manages open positions. May only reduce risk — never widens a stop or adds size.
+  trade_manager:
+    enabled: false
+    model: claude-opus-5
+    effort: medium
+    timeout_s: 30.0
+    min_interval_s: 300     # cost backstop; the agent is triggered by events, not this clock
+
+  # 6. Weekly journal review. Zero live authority — it writes you a report.
+  reviewer:
+    enabled: false
+    model: claude-opus-5
+    effort: high
+    max_tokens: 16000
+    timeout_s: 300.0
+
+  # Stop calling agents once the day's estimated spend passes this.
+  # On a $5,000 account, $3/day is roughly 1.8%/month of equity in costs — which
+  # would eat most of a realistic return. Keep this tight.
+  daily_cost_limit_usd: 3.0
+
+  # API error, timeout, malformed output or a refusal ⇒ no trade.
+  # Missing a trade is free; an unreviewed trade is not.
+  fail_closed: true
+
+# -----------------------------------------------------------------------------
+# TELEGRAM — alerts and remote kill switch
+#   bot_token: message @BotFather, send /newbot
+#   chat_id:   message @userinfobot
+# -----------------------------------------------------------------------------
+telegram:
+  enabled: false
+  bot_token: ${TELEGRAM_BOT_TOKEN}
+  chat_id: ${TELEGRAM_CHAT_ID}
+  alert_on_trades: true
+  alert_on_errors: true
+  allow_commands: true      # /status /pause /resume /flat /pnl
+
+# -----------------------------------------------------------------------------
+# REPORTING
+#
+# weekly_target_pct_* is your stated goal. It is a REPORTING BENCHMARK ONLY —
+# nothing in the trading path can read it, so a return target can never push the
+# bot into over-trading to "catch up".
+# -----------------------------------------------------------------------------
+reporting:
+  weekly_target_pct_min: 3.0
+  weekly_target_pct_max: 5.0
+  journal_db: data/journal.db
+  reports_dir: reports
+  log_dir: logs
+  log_level: INFO
