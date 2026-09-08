@@ -101,8 +101,25 @@ strategy:
   slow_ema: 200
   atr_period: 14
   adx_period: 14
+  rsi_period: 14
   min_adx: 20.0           # below this the market is treated as rangebound
+
+  # Bars back in which price must have touched the fast EMA. Without this the
+  # rule would buy any strong bar in an uptrend — chasing, which puts the stop
+  # far away and ruins the reward-to-risk.
+  pullback_lookback: 3
+
+  # Momentum window. Longs need RSI between these; shorts use the mirror
+  # (100 - rsi_extreme, 100 - rsi_midline). The ceiling keeps the bot out of
+  # blow-off moves, where the structural stop is furthest from entry.
+  rsi_midline: 50.0
+  rsi_extreme: 70.0
+
   atr_stop_multiple: 1.5  # stop distance = 1.5 x ATR
+
+  # Place the stop beyond the pullback swing when that is further than the ATR
+  # stop. A stop inside the structure gets hit by the same noise that built it.
+  use_structural_stop: true
   tp_r_multiple: 2.0      # take profit at 2x the risked distance
   breakeven_at_r: 1.0     # move stop to entry at +1R (null to disable)
   trail_after_r: 1.5      # start ATR trailing at +1.5R (null to disable)

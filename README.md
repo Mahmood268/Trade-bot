@@ -3,8 +3,9 @@
 A gold trading bot for MetaTrader 5, with a deterministic strategy core and a
 layer of Claude agents that can only ever *reduce* risk.
 
-**Status: Slice 1 of 4 — foundation.** Nothing trades yet. `dry_run: true` is the
-shipped default and sending real orders requires two independent opt-ins.
+**Status: Slice 2 of 4 — strategy, risk and backtester.** Nothing trades yet:
+there is no executor and no engine loop. `dry_run: true` is the shipped default
+and sending real orders requires two independent opt-ins.
 
 ## Start here
 
@@ -15,7 +16,18 @@ Telegram, then the read-only connection check.
 pip install -r requirements.txt
 cp config/config.example.yaml config/config.yaml    # then fill in your MT5 login
 python scripts/check_connection.py                  # places no orders
+
+# on Windows, once connected — export history for the backtester
+python scripts/export_history.py --months 12
+
+# anywhere
+python scripts/run_backtest.py --data data/xauusd_m15.parquet \
+                               --m1 data/xauusd_m1.parquet
+python scripts/check_no_lookahead.py                # proves the backtest isn't cheating
 ```
+
+[`docs/STRATEGY.md`](docs/STRATEGY.md) — what the rules actually are, how
+positions are sized, and how to read a backtest without fooling yourself.
 
 ## Architecture
 
@@ -60,10 +72,22 @@ python -m pytest tests/ -q
 
 The suite runs on any OS: a fake MT5 terminal (`tests/fake_mt5.py`) stands in for
 the real one, so requotes, filling-mode rejection and invalid stops are all tested
-without a live account.
+without a live account. Indicators are checked against values computed by hand
+from Wilder's definitions, every risk veto has its own test, and the strategy is
+tested for lookahead by re-evaluating it on a truncated frame.
+
+Separately, `scripts/check_no_lookahead.py` replays the strategy over random
+walks. Random data holds no edge, so a positive result there would mean the
+backtester is reading bars it should not see. It currently reports about −0.10R
+mean expectancy across six seeds, which is the correct answer.
 
 ## Expectations
 
 This builds correct, auditable machinery. It does not guarantee a profitable
 strategy. The backtester and the demo phase exist to find out whether the strategy
 has an edge before real money is involved — including the possibility that it does not.
+
+Risk per trade stays at 1% regardless of any return target. The weekly goal in
+`reporting:` is a benchmark the reports measure against; nothing in the trading
+path can read it, so a return target can never push the bot into over-trading to
+catch up.

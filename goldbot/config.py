@@ -146,8 +146,34 @@ class StrategyConfig(_Base):
     slow_ema: int = Field(default=200, ge=20, le=1000)
     atr_period: int = Field(default=14, ge=2, le=100)
     adx_period: int = Field(default=14, ge=2, le=100)
+    rsi_period: int = Field(default=14, ge=2, le=100)
     min_adx: float = Field(
         default=20.0, ge=0, le=100, description="Below this, treat the market as rangebound."
+    )
+    pullback_lookback: int = Field(
+        default=3,
+        ge=1,
+        le=20,
+        description="Bars back in which price must have touched the fast EMA for the setup "
+        "to count as a pullback rather than a chase.",
+    )
+    rsi_midline: float = Field(
+        default=50.0,
+        ge=0,
+        le=100,
+        description="Momentum floor: longs need RSI above this, shorts below.",
+    )
+    rsi_extreme: float = Field(
+        default=70.0,
+        ge=50,
+        le=100,
+        description="Overbought ceiling for longs (mirrored to 100-x for shorts). Blocks "
+        "entering a blow-off move, where the pullback stop is furthest away.",
+    )
+    use_structural_stop: bool = Field(
+        default=True,
+        description="Place the stop beyond the pullback swing when that is further than the "
+        "ATR stop. Never inside the swing the setup is built on.",
     )
     atr_stop_multiple: float = Field(default=1.5, gt=0, le=10)
     tp_r_multiple: float = Field(default=2.0, gt=0, le=20, description="Take profit in R multiples.")
@@ -415,6 +441,12 @@ class Config(_Base):
             )
 
         strat = self.strategy
+        if strat.rsi_extreme <= strat.rsi_midline:
+            raise ValueError(
+                f"rsi_extreme ({strat.rsi_extreme}) must exceed rsi_midline "
+                f"({strat.rsi_midline}); otherwise the momentum window is empty and no "
+                "signal can ever pass."
+            )
         if strat.fast_ema >= strat.trend_ema or strat.trend_ema >= strat.slow_ema:
             raise ValueError(
                 f"EMA periods must be strictly increasing: fast ({strat.fast_ema}) < "
