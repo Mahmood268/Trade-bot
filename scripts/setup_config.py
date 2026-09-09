@@ -203,19 +203,34 @@ def main() -> int:
 
     print("-" * 74)
     answer = input("Run the connection check now? [Y/n] ").strip().lower()
-    if answer in ("", "y", "yes"):
+    ran_check = answer in ("", "y", "yes")
+    code = 0
+    if ran_check:
         print()
-        return subprocess.call([sys.executable, str(ROOT / "scripts" / "check_connection.py")])
+        # This child inherits os.environ, which store_password() has already set
+        # — which is exactly why the reminder below matters afterwards.
+        code = subprocess.call([sys.executable, str(ROOT / "scripts" / "check_connection.py")])
+    else:
+        print()
+        print("When you are ready, with the MT5 terminal open and logged in:")
+        print("    python scripts\\check_connection.py")
 
-    print()
-    print("When you are ready, with the MT5 terminal open and logged in:")
-    print("    python scripts\\check_connection.py")
     if stored:
-        # setx writes to the registry for *future* processes only.
+        # setx writes to the registry for FUTURE processes only. The check above
+        # worked because this process passed the password to its child directly;
+        # the next command typed into THIS window will not have it.
         print()
-        print("Note: setx only affects NEW Command Prompt windows. Open a fresh one")
-        print("before running that, or the password will look unset.")
-    return 0
+        print("-" * 74)
+        print("ONE MORE THING: the password was saved with setx, which only applies to")
+        print("NEW Command Prompt windows. This one does not have it yet.")
+        print()
+        print("Before running anything else, close this window and open a fresh one:")
+        print("    Windows key -> type cmd -> Enter")
+        print("    cd %USERPROFILE%\\Trade-bot")
+        print()
+        print("Otherwise the next command fails with:")
+        print("    config references environment variable ${MT5_PASSWORD} but it is not set")
+    return code
 
 
 if __name__ == "__main__":
