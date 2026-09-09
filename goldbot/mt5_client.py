@@ -526,6 +526,57 @@ class MT5Client:
         df = df.set_index("time").sort_index()
         return df.rename(columns={"tick_volume": "volume", "real_volume": "real_volume"})
 
+    # A single copy_rates_from_pos call is rejected outright above a certain size:
+    # MetaQuotes-Demo returned "[-2] Invalid params" for 372,001 M1 bars. The
+    # terminal will serve the same span happily one window at a time, so bulk
+    # history is fetched in chunks rather than in one request.
+    BULK_CHUNK = 50_000
+
+    def get_bars_bulk(
+        self,
+        timeframe: str,
+        count: int,
+        symbol: str | None = None,
+        chunk_size: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch a large span of bars, walking backwards in chunks.
+
+        Stops early and returns what exists when the terminal runs out of
+        history — a broker serving three months of M1 should give you three
+        months, not an error. Bars are de-duplicated and sorted, so overlapping
+        chunks at a boundary are harmless.
+        """
+        sym = symbol or self.symbol
+        chunk = chunk_size or self.BULK_CHUNK
+        tf = self._timeframe(timeframe)
+
+        frames: list[pd.DataFrame] = []
+        fetched = 0
+        while fetched < count:
+            want = min(chunk, count - fetched)
+            rates = self.mt5.copy_rates_from_pos(sym, tf, fetched, want)
+            if rates is None or len(rates) == 0:
+                code, msg = self.mt5.last_error()
+                if not frames:
+                    raise MT5Error(
+                        f"copy_rates_from_pos({sym}, {timeframe}, {fetched}, {want}) "
+                        f"failed: [{code}] {msg}"
+                    )
+                log.info(
+                    "%s history ends after %d bars ([%s] %s)", timeframe, fetched, code, msg
+                )
+                break
+            frames.append(pd.DataFrame(rates))
+            got = len(rates)
+            fetched += got
+            if got < want:
+                break  # the terminal has nothing older
+
+        df = pd.concat(frames, ignore_index=True)
+        df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+        df = df.drop_duplicates(subset="time").set_index("time").sort_index()
+        return df.rename(columns={"tick_volume": "volume", "real_volume": "real_volume"})
+
     def get_closed_bars(self, timeframe: str, count: int, symbol: str | None = None) -> pd.DataFrame:
         """Bars excluding the still-forming one.
 

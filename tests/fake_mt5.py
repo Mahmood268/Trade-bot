@@ -115,6 +115,10 @@ class FakeMT5:
         # 0.79 models a GBP account holding a USD-denominated contract.
         self.profit_rate = 1.0
         self.calc_profit_available = True
+        # Mirrors the two real limits on history: a per-call ceiling, and a
+        # finite amount of history the broker actually holds.
+        self.max_bars_per_call = 100_000
+        self.history_bars = 500_000
         self.account_currency = "USD"
         self.order_script: list[int | None] = []
         self.sent_requests: list[dict[str, Any]] = []
@@ -195,11 +199,26 @@ class FakeMT5:
         sym = self.symbols.get(symbol)
         if sym is None:
             return None
+
+        # Real terminals reject a single oversized request: MetaQuotes-Demo
+        # answered "[-2] Invalid params" to one call for 372,001 M1 bars.
+        if count > self.max_bars_per_call:
+            self._error = (-2, "Terminal: Invalid params")
+            return None
+
+        # Finite history, so walking backwards eventually runs out — the other
+        # half of what bulk fetching has to cope with.
+        available = max(0, self.history_bars - start)
+        n = min(count, available)
+        if n <= 0:
+            self._error = (1, "no more history")
+            return None
+
         now = int(self.clock())
         step = 900
         rows = []
-        for i in range(count):
-            t = now - (count - i) * step
+        for i in range(n):
+            t = now - (start + n - i) * step
             base = sym.bid + i * 0.1
             rows.append((t, base, base + 1.0, base - 1.0, base + 0.5, 100 + i, 2, 0))
         return np.array(

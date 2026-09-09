@@ -37,7 +37,9 @@ BARS_PER_MONTH = {"M1": 31_000, "M5": 6_200, "M15": 2_100, "M30": 1_050, "H1": 5
 def export(client: MT5Client, timeframe: str, months: int, out: Path) -> int:
     count = BARS_PER_MONTH.get(timeframe, 2_100) * months
     print(f"  requesting ~{count:,} {timeframe} bars ...")
-    df = client.get_closed_bars(timeframe, count)
+    # Chunked: the terminal rejects a single request for a very large span, but
+    # serves the same history one window at a time.
+    df = client.get_bars_bulk(timeframe, count + 1).iloc[:-1]
 
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out)
@@ -96,7 +98,16 @@ def main() -> int:
 
         if not args.no_m1 and "M1" not in timeframes:
             print("\nExporting M1 bars for intrabar fill simulation:")
-            export(client, "M1", args.months, Path(f"data/{symbol.lower()}_m1.parquet"))
+            try:
+                export(client, "M1", args.months, Path(f"data/{symbol.lower()}_m1.parquet"))
+            except MT5Error as exc:
+                # The trading-timeframe files are already written and useful on
+                # their own; losing them because M1 is unavailable would be a
+                # poor trade. Backtests without M1 are pessimistic, not broken.
+                print(f"  M1 export failed: {exc}")
+                print("  The M5/M15 files above are fine. Without M1 the backtester")
+                print("  scores any bar holding both the stop and the target as a loss,")
+                print("  which understates results rather than flattering them.")
     except MT5Error as exc:
         print(f"FAILED: {exc}")
         return 1

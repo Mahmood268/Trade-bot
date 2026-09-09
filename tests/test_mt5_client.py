@@ -360,3 +360,50 @@ class TestPointValue:
         c.connect()
         c.discover_symbol()
         assert c.symbol_spec().value_per_point_per_lot == pytest.approx(0.85)
+
+
+class TestBulkHistory:
+    """Exporting a year of M1 is one request the terminal will not serve.
+
+    MetaQuotes-Demo answered a single call for 372,001 M1 bars with
+    "[-2] Invalid params" while happily serving the same span in windows.
+    """
+
+    def client(self, fake):
+        c = MT5Client(MT5Config(), mt5_module=fake)
+        c.connect()
+        c.discover_symbol()
+        return c
+
+    def test_a_single_oversized_request_still_fails(self):
+        # The behaviour being worked around, pinned so the fake stays honest.
+        fake = FakeMT5()
+        fake.max_bars_per_call = 100_000
+        with pytest.raises(MT5Error, match="Invalid params"):
+            self.client(fake).get_bars("M1", 372_001)
+
+    def test_chunking_fetches_the_whole_span(self):
+        fake = FakeMT5()
+        fake.max_bars_per_call = 100_000
+        fake.history_bars = 500_000
+        df = self.client(fake).get_bars_bulk("M1", 372_001, chunk_size=50_000)
+        assert len(df) == 372_001
+
+    def test_bars_come_back_sorted_and_unique(self):
+        fake = FakeMT5()
+        df = self.client(fake).get_bars_bulk("M1", 120_000, chunk_size=50_000)
+        assert df.index.is_monotonic_increasing
+        assert df.index.is_unique
+
+    def test_stops_early_when_the_broker_runs_out(self):
+        # Three months of M1 should yield three months, not an error.
+        fake = FakeMT5()
+        fake.history_bars = 90_000
+        df = self.client(fake).get_bars_bulk("M1", 372_001, chunk_size=50_000)
+        assert len(df) == 90_000
+
+    def test_raises_when_there_is_no_history_at_all(self):
+        fake = FakeMT5()
+        fake.history_bars = 0
+        with pytest.raises(MT5Error):
+            self.client(fake).get_bars_bulk("M1", 1_000)
