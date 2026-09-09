@@ -167,6 +167,10 @@ class Engine:
         # 3. Phase transitions are journalled once, not every cycle.
         if phase.phase != self._last_phase:
             self.journal.record_event(now, day, "phase", f"{phase.phase.value}: {phase.reason}")
+            # Visible in the log too: watching a live run, the phase is the
+            # single most useful thing to know, and "why is it not trading?"
+            # is usually answered by it.
+            log.info("phase -> %s (%s)", phase.phase.value.upper(), phase.reason)
             self._last_phase = phase.phase
             if phase.phase in (Phase.PREFLIGHT, Phase.DEBRIEF):
                 report.notes.append(f"{phase.phase.value} phase — agents run here in Stage B")
