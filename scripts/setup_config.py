@@ -128,17 +128,23 @@ def check_environment() -> bool:
 
 
 def write_config(login: str, server: str) -> None:
-    """Copy the example and substitute the two lines that are yours.
+    """Copy the example and substitute the three lines that are yours.
 
-    Only `login` and `server` are touched. Everything else — dry_run, the risk
-    limits, the agents being off — stays exactly as shipped.
+    `password` becomes a ${MT5_PASSWORD} reference — never the password itself —
+    because this script is also what sets that environment variable. The example
+    ships with it null so that a plain copy of the example loads with no
+    environment set at all.
+
+    Everything else — dry_run, the risk limits, the agents being off — stays
+    exactly as shipped.
     """
     text = EXAMPLE.read_text(encoding="utf-8")
     text, n_login = re.subn(r"(?m)^  login: .*$", f"  login: {login}", text, count=1)
     text, n_server = re.subn(r"(?m)^  server: .*$", f'  server: "{server}"', text, count=1)
-    if not (n_login and n_server):
+    text, n_pw = re.subn(r"(?m)^  password: .*$", "  password: ${MT5_PASSWORD}", text, count=1)
+    if not (n_login and n_server and n_pw):
         raise SystemExit(
-            "Could not find the login/server lines in config.example.yaml. "
+            "Could not find the login/server/password lines in config.example.yaml. "
             "Edit config/config.yaml by hand instead."
         )
     if TARGET.exists():

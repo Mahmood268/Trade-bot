@@ -32,7 +32,12 @@ mt5:
   # is already logged into. Filling them in makes the bot log in explicitly,
   # which is safer: it can never attach to the wrong account by accident.
   login: null                     # e.g. 51234567
-  password: ${MT5_PASSWORD}       # set MT5_PASSWORD in your environment
+  # null = use whatever account the terminal is already logged into.
+  # scripts/setup_config.py sets this to ${MT5_PASSWORD} for you and stores the
+  # password in that environment variable. To do it by hand:
+  #     setx MT5_PASSWORD "your-password"
+  # and then change the line below to:  password: ${MT5_PASSWORD}
+  password: null
   server: null                    # e.g. "ICMarketsSC-Demo"
   terminal_path: null             # e.g. "C:/Program Files/MetaTrader 5/terminal64.exe"
 
@@ -341,8 +346,14 @@ agents:
 # -----------------------------------------------------------------------------
 telegram:
   enabled: false
-  bot_token: ${TELEGRAM_BOT_TOKEN}
-  chat_id: ${TELEGRAM_CHAT_ID}
+  # Left null because `enabled: false` above. When you turn Telegram on, set the
+  # two environment variables and change these to ${TELEGRAM_BOT_TOKEN} and
+  # ${TELEGRAM_CHAT_ID}. A ${VAR} reference for a variable you have not set is a
+  # hard error at startup — deliberately, so a silently empty credential can
+  # never reach the broker — which is why these ship as null rather than as
+  # references to variables a fresh install does not have.
+  bot_token: null
+  chat_id: null
   alert_on_trades: true
   alert_on_errors: true
   allow_commands: true      # /status /pause /resume /flat /pnl

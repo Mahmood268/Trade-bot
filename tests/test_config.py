@@ -236,13 +236,33 @@ class TestSecretsHandling:
         with pytest.raises(FileNotFoundError, match="config.example.yaml"):
             load_config(tmp_path / "nope.yaml")
 
-    def test_the_shipped_example_config_is_valid_and_safe(self, monkeypatch):
+    def test_the_shipped_example_config_loads_with_no_environment_at_all(self, monkeypatch):
+        """A fresh copy of the example must work before anything is configured.
+
+        This previously set all three variables, which hid a real bug: the
+        example referenced ${TELEGRAM_BOT_TOKEN} while Telegram was disabled, so
+        copying it and running the connection check failed on a credential for a
+        feature that was off. Credentials now ship as null and are filled in
+        when each feature is turned on.
+        """
         for var in ("MT5_PASSWORD", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"):
-            monkeypatch.setenv(var, "placeholder")
+            monkeypatch.delenv(var, raising=False)
         cfg = load_config("config/config.example.yaml")
         assert cfg.dry_run is True
         assert cfg.live_orders_armed is False
         assert not any(getattr(cfg.agents, name).enabled for name in AGENTS)
+
+    def test_the_example_references_no_unset_variables(self, monkeypatch):
+        # Every ${VAR} in the shipped example must belong to a feature that is
+        # switched on; anything else is a trap for a first-time setup.
+        for var in ("MT5_PASSWORD", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"):
+            monkeypatch.delenv(var, raising=False)
+        text = open("config/config.example.yaml").read()
+        active = [
+            line for line in text.splitlines()
+            if "${" in line and not line.lstrip().startswith("#")
+        ]
+        assert active == [], f"example config references env vars on live lines: {active}"
 
     def test_the_example_config_contains_no_literal_secrets(self):
         # It is committed. Anything that looks like a real credential in here is
