@@ -31,6 +31,7 @@ class SessionVerdict:
     allowed: bool
     window: str | None
     reason: str
+    kind: str | None = None   # for must_flatten: "daily" | "weekend" | None
 
 
 class SessionGate:
@@ -87,25 +88,48 @@ class SessionGate:
     def must_flatten(self, ts: datetime) -> SessionVerdict:
         """Must open positions be closed now?
 
-        Only the weekend rule lives here. Gold gaps over the weekend on news the
-        market never got to price, and a stop cannot protect against a gap — it
-        becomes a market order at whatever Monday opens at. Closing on Friday
-        turns an unbounded risk into a known cost.
-        """
-        if not self.cfg.flatten_before_weekend:
-            return SessionVerdict(False, None, "weekend flattening disabled")
+        Two rules, and the daily one is checked first because it is stricter.
 
+        *Daily*: every trading day ends flat at ``daily_close``. The routine has
+        a beginning and an end, so each day's result stands on its own — and
+        nothing is held through the Asian session, where gold's spread is at
+        its widest and the bot is not watching.
+
+        *Weekend*: gold gaps over the weekend on news the market never got to
+        price, and a stop cannot protect against a gap — it becomes a market
+        order at whatever Monday opens at. Closing on Friday turns an unbounded
+        risk into a known cost. With daily flattening on, Friday is already
+        covered; this rule then only matters for a bot restarted on a Saturday
+        with positions it did not expect.
+        """
         local = self.local(ts)
+
+        # Every day, not just weekdays: a bot configured to trade on a Saturday
+        # must still end that Saturday flat.
+        if self.cfg.flatten_daily:
+            if local.time() >= self.cfg.daily_close_time:
+                return SessionVerdict(
+                    True,
+                    None,
+                    f"{local:%A %H:%M} is past the {self.cfg.daily_close} daily close — "
+                    "ending the day flat",
+                    kind="daily",
+                )
+
+        if not self.cfg.flatten_before_weekend:
+            return SessionVerdict(False, None, "not at the daily close; weekend flattening disabled")
+
         if local.weekday() == FRIDAY and self._past_friday_close(local):
             return SessionVerdict(
                 True,
                 None,
                 f"Friday {local:%H:%M} is past the {self.cfg.friday_close} close — "
                 "flattening to avoid weekend gap risk",
+                kind="weekend",
             )
         if local.weekday() > FRIDAY:
-            return SessionVerdict(True, None, f"{local:%A} — market weekend")
-        return SessionVerdict(False, None, "not the weekend boundary")
+            return SessionVerdict(True, None, f"{local:%A} — market weekend", kind="weekend")
+        return SessionVerdict(False, None, "not at a flatten boundary")
 
     def _past_friday_close(self, local: datetime) -> bool:
         if local.weekday() != FRIDAY:

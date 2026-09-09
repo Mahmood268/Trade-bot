@@ -233,19 +233,100 @@ class SessionConfig(_Base):
         default=(0, 1, 2, 3, 4),
         description="Weekdays the bot may enter trades (Mon=0 … Sun=6).",
     )
+    flatten_daily: bool = Field(
+        default=True,
+        description="Close every position at daily_close, every trading day. The daily "
+        "routine ends flat: no overnight holds, no Asian-session spread, and a clean "
+        "day result to review. This is the intraday-scalper's discipline, and it makes "
+        "every day's P&L independently attributable.",
+    )
+    daily_close: str = Field(
+        default="19:30",
+        description="HH:MM in `timezone`. Must fall after the last trading window ends.",
+    )
     flatten_before_weekend: bool = Field(
         default=True, description="Close everything before the Friday close — no weekend gap risk."
     )
-    friday_close: str = Field(default="20:00", description="HH:MM in `timezone`.")
+    friday_close: str = Field(
+        default="20:00",
+        description="HH:MM in `timezone`. Only matters when flatten_daily is off — with "
+        "daily flattening on, Friday closes at daily_close like every other day.",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> "SessionConfig":
-        if not _TIME_RE.match(self.friday_close):
-            raise ValueError(f"friday_close={self.friday_close!r} is not HH:MM")
+        for label, value in (("friday_close", self.friday_close), ("daily_close", self.daily_close)):
+            if not _TIME_RE.match(value):
+                raise ValueError(f"{label}={value!r} is not HH:MM")
         for day in self.trade_days:
             if not 0 <= day <= 6:
                 raise ValueError(f"trade_days entry {day} out of range 0-6")
+        if self.flatten_daily:
+            last_end = max(w.end_time for w in self.windows)
+            if self.daily_close_time <= last_end:
+                raise ValueError(
+                    f"daily_close {self.daily_close} must be after the last trading window "
+                    f"ends ({last_end:%H:%M}); otherwise the bot flattens positions it has "
+                    "only just opened."
+                )
         return self
+
+    @property
+    def daily_close_time(self) -> dt_time:
+        h, m = self.daily_close.split(":")
+        return dt_time(int(h), int(m))
+
+    @property
+    def first_open_time(self) -> dt_time:
+        return min(w.start_time for w in self.windows)
+
+
+class RoutineConfig(_Base):
+    """The daily schedule the agents run to.
+
+    The day is a fixed sequence of phases, keyed to the London open in
+    ``sessions.timezone``. Phases decide what is *permitted*; within a phase the
+    engine is still event-driven. A fixed routine does two things a purely
+    reactive design cannot: it makes the number of agent calls per day
+    predictable (the API bill no longer scales with how noisy the market is),
+    and it gives an unambiguous answer to "what is the bot allowed to do right
+    now" at every moment of the day.
+
+    PRE-FLIGHT → HUNT → HOLD → HUNT → WIND-DOWN → FLATTEN → DEBRIEF → CLOSED
+    """
+
+    enabled: bool = Field(default=True)
+    preflight: str = Field(
+        default="07:30",
+        description="HH:MM in sessions.timezone. The Session Supervisor, News Scout and "
+        "Regime Analyst run here and produce the day plan. Must be before the first "
+        "trading window opens, with enough room for a web search to finish.",
+    )
+    preflight_min_lead_min: int = Field(
+        default=15,
+        ge=5,
+        le=180,
+        description="Minimum minutes between pre-flight and the first window. A plan "
+        "produced 30 seconds before the open is a plan produced in a hurry.",
+    )
+    debrief_after_min: int = Field(
+        default=15,
+        ge=1,
+        le=240,
+        description="Minutes after daily_close the Day Auditor runs. It waits so that "
+        "every fill has settled and the broker's own numbers can be reconciled.",
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> "RoutineConfig":
+        if not _TIME_RE.match(self.preflight):
+            raise ValueError(f"preflight={self.preflight!r} is not HH:MM")
+        return self
+
+    @property
+    def preflight_time(self) -> dt_time:
+        h, m = self.preflight.split(":")
+        return dt_time(int(h), int(m))
 
 
 class CalendarConfig(_Base):
@@ -304,9 +385,17 @@ class AgentsConfig(_Base):
     worse at — a news brief that misreads a Fed statement costs more than the
     tokens it saved.
 
-    Effort is raised to ``xhigh`` on the three agents whose output is hardest to
-    check after the fact: the two that decide whether a trade happens, and the
-    weekly review that proposes parameter changes. The rest run at ``high``.
+    Effort is raised to ``xhigh`` on the four agents whose output is hardest to
+    check after the fact: the one that sets the day's plan, the two that decide
+    whether a trade happens, and the weekly review that proposes parameter
+    changes. The rest run at ``high``.
+
+    Two agents bracket the trading day. The Session Supervisor runs once at
+    pre-flight and sets the plan — normal, reduced size, or stand aside — with
+    authority only to reduce. The Day Auditor runs once after the flatten and
+    has no authority at all: it reconciles the day and writes the report. Between
+    them the day has a beginning and an end, which is what makes each day's
+    result independently attributable.
 
     Cost is controlled by *cadence*, not by model choice: agents are triggered by
     events, and ``daily_cost_limit_usd`` is the hard backstop. See the note on
@@ -319,6 +408,9 @@ class AgentsConfig(_Base):
         "written to config.",
     )
 
+    session_supervisor: AgentConfig = Field(
+        default=AgentConfig(model="claude-opus-5", effort="xhigh", cache_ttl_s=86400)
+    )
     news_scout: AgentConfig = Field(
         default=AgentConfig(model="claude-opus-5", effort="high", cache_ttl_s=3600)
     )
@@ -331,6 +423,9 @@ class AgentsConfig(_Base):
     )
     trade_manager: AgentConfig = Field(
         default=AgentConfig(model="claude-opus-5", effort="high", min_interval_s=300)
+    )
+    day_auditor: AgentConfig = Field(
+        default=AgentConfig(model="claude-opus-5", effort="high", max_tokens=8000, timeout_s=120.0)
     )
     reviewer: AgentConfig = Field(
         default=AgentConfig(model="claude-opus-5", effort="xhigh", max_tokens=16000)
@@ -405,6 +500,7 @@ class Config(_Base):
     risk: RiskConfig = Field(default_factory=RiskConfig)
     strategy: StrategyConfig = Field(default_factory=StrategyConfig)
     sessions: SessionConfig = Field(default_factory=SessionConfig)
+    routine: RoutineConfig = Field(default_factory=RoutineConfig)
     calendar: CalendarConfig = Field(default_factory=CalendarConfig)
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
@@ -476,6 +572,25 @@ class Config(_Base):
                 f"trail_after_r ({strat.trail_after_r}) must be at or above breakeven_at_r "
                 f"({strat.breakeven_at_r}); trailing before break-even would widen risk."
             )
+
+        if self.routine.enabled:
+            from datetime import datetime, timedelta
+
+            anchor = datetime(2000, 1, 3)
+            preflight = anchor.replace(
+                hour=self.routine.preflight_time.hour, minute=self.routine.preflight_time.minute
+            )
+            first_open = anchor.replace(
+                hour=self.sessions.first_open_time.hour, minute=self.sessions.first_open_time.minute
+            )
+            lead = timedelta(minutes=self.routine.preflight_min_lead_min)
+            if preflight + lead > first_open:
+                raise ValueError(
+                    f"routine.preflight {self.routine.preflight} must be at least "
+                    f"{self.routine.preflight_min_lead_min} minutes before the first trading "
+                    f"window opens ({self.sessions.first_open_time:%H:%M}). The day plan needs "
+                    "a news search and a regime read to finish before the hunt starts."
+                )
 
         if self.telegram.enabled and not (self.telegram.bot_token and self.telegram.chat_id):
             raise ValueError(

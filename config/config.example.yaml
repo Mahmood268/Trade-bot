@@ -150,8 +150,37 @@ sessions:
       start: "13:30"
       end: "17:00"
   trade_days: [0, 1, 2, 3, 4]     # Mon=0 … Sun=6
-  flatten_before_weekend: true    # no weekend gap risk
+
+  # Every day ends flat. Nothing is held through the Asian session (widest
+  # spread, nobody watching) and each day's result stands on its own, which is
+  # what lets the Day Auditor say something precise about it.
+  flatten_daily: true
+  daily_close: "19:30"            # must be after the last window ends
+
+  # Only matters if flatten_daily is off — otherwise Friday closes at daily_close.
+  flatten_before_weekend: true
   friday_close: "20:00"
+
+# -----------------------------------------------------------------------------
+# DAILY ROUTINE — the phases the agents run to (docs/AGENTS.md)
+#
+#   07:30  PRE-FLIGHT  Session Supervisor + News Scout + Regime Analyst → day plan
+#   08:00  HUNT        London window: entries permitted
+#   12:00  HOLD        between windows: manage only
+#   13:30  HUNT        NY overlap: entries permitted
+#   17:00  WIND-DOWN   tighten and exit only
+#   19:30  FLATTEN     close everything, confirm flat (code, not an agent)
+#   19:45  DEBRIEF     Day Auditor reconciles and reports
+#
+# Phases decide what is PERMITTED; inside a phase the engine is event-driven.
+# A fixed routine makes the number of agent calls per day predictable, and
+# gives one unambiguous answer to "what may the bot do right now".
+# -----------------------------------------------------------------------------
+routine:
+  enabled: true
+  preflight: "07:30"              # in sessions.timezone; ≥ 15 min before the first window
+  preflight_min_lead_min: 15
+  debrief_after_min: 15           # Day Auditor runs this long after daily_close
 
 # -----------------------------------------------------------------------------
 # ECONOMIC CALENDAR — deterministic blackouts, no AI involved
@@ -177,9 +206,13 @@ calendar:
 # Every agent runs on Opus 5. Each one either reads ambiguous information or
 # touches a money decision, and both are what the cheaper tiers are worse at —
 # a news brief that misreads a Fed statement costs far more than the tokens it
-# saved. Effort is xhigh on the three whose output is hardest to check after
-# the fact (the two deciding whether a trade happens, and the weekly review
-# that proposes parameter changes); high on the rest.
+# saved. Effort is xhigh on the four whose output is hardest to check after
+# the fact (the day plan, the two deciding whether a trade happens, and the
+# weekly review that proposes parameter changes); high on the rest.
+#
+# Two agents bracket the day. The Session Supervisor runs once at pre-flight and
+# sets the plan; the Day Auditor runs once after the flatten and reconciles it.
+# Neither can raise risk. Neither can be talked into it.
 #
 # Cost is controlled by CADENCE, not by model choice. Agents are event-driven,
 # and daily_cost_limit_usd is the hard backstop. Read the note on it.
@@ -189,7 +222,19 @@ calendar:
 agents:
   api_key_env: ANTHROPIC_API_KEY
 
-  # 1. Reads live gold/USD/rates coverage → structured news brief. Advisory only.
+  # 1. Runs once at pre-flight. Reads the news brief, the regime view, the
+  #    account and yesterday's audit → ONE plan for the day: normal, reduced
+  #    size (a multiplier ≤ 1.0), or stand aside. Asks "should we trade today
+  #    at all?" deliberately, before the first signal, rather than implicitly.
+  #    Authority: reduce or stand down. Nothing else.
+  session_supervisor:
+    enabled: false
+    model: claude-opus-5
+    effort: xhigh
+    timeout_s: 90.0
+    cache_ttl_s: 86400      # the plan lasts the day
+
+  # 2. Reads live gold/USD/rates coverage → structured news brief. Advisory only.
   #    The highest-volume agent — cache_ttl_s, not the model, is its cost lever.
   news_scout:
     enabled: false
@@ -199,7 +244,7 @@ agents:
     max_tokens: 4000
     cache_ttl_s: 3600       # past this the brief is "no view", never stale-but-trusted
 
-  # 2. Interprets H4/D1 structure and volatility → regime label. May only REDUCE risk.
+  # 3. Interprets H4/D1 structure and volatility → regime label. May only REDUCE risk.
   #    Runs a few times a day, so effort here is nearly free.
   regime_analyst:
     enabled: false
@@ -208,7 +253,7 @@ agents:
     timeout_s: 45.0
     cache_ttl_s: 14400
 
-  # 3. The main decision maker. May only APPROVE / VETO / REDUCE.
+  # 4. The main decision maker. May only APPROVE / VETO / REDUCE.
   #    xhigh: this is the call that puts money at risk, and a wrong approval is
   #    not something you can audit until the trade has already lost.
   decision:
@@ -217,7 +262,7 @@ agents:
     effort: xhigh
     timeout_s: 60.0
 
-  # 4. Devil's advocate: argues the case against each proposed trade. It is
+  # 5. Devil's advocate: argues the case against each proposed trade. It is
   #    explicitly allowed to report "no material objection" — a challenger forced
   #    to always disagree produces noise, not scrutiny. A material objection
   #    vetoes or shrinks the trade, so no third arbiter is needed.
@@ -227,7 +272,7 @@ agents:
     effort: xhigh
     timeout_s: 60.0
 
-  # 5. Manages open positions. May only reduce risk — never widens a stop or adds size.
+  # 6. Manages open positions. May only reduce risk — never widens a stop or adds size.
   #    THE BIGGEST COST DRIVER: it runs repeatedly while a position is open.
   #    Raise min_interval_s before touching anything else if the bill is too high.
   trade_manager:
@@ -237,7 +282,18 @@ agents:
     timeout_s: 45.0
     min_interval_s: 300     # cost backstop; the agent is triggered by events, not this clock
 
-  # 6. Weekly journal review. Zero live authority — it writes you a report.
+  # 7. Runs once at debrief, after the flatten has settled. Confirms the bot is
+  #    flat and its records match the broker's, then: did the plan survive
+  #    contact? what did each veto cost or save? Writes the day record and a
+  #    short Telegram summary. Zero authority.
+  day_auditor:
+    enabled: false
+    model: claude-opus-5
+    effort: high
+    max_tokens: 8000
+    timeout_s: 120.0
+
+  # 8. Weekly journal review. Zero live authority — it writes you a report.
   #    Runs once a week, so xhigh costs pennies and its output shapes what you
   #    change next week.
   reviewer:
@@ -249,7 +305,8 @@ agents:
 
   # Stop calling agents once the day's estimated spend passes this.
   #
-  # READ THIS. With all six agents on Opus 5, realistic spend is $4-8/day. On a
+  # READ THIS. With all eight agents on Opus 5, realistic spend is $4-8/day —
+  # the two new ones add two calls a day, which is nearly nothing. On a
   # $5,000 account that is 2.5-5% of equity PER MONTH in costs — more than most
   # strategies produce in edge. This is the single biggest structural problem
   # with running six Opus agents against a small account.

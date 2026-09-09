@@ -100,3 +100,38 @@ class TestCustomWindows:
 
 def gate_at(ts):
     return SessionGate(SessionConfig()).can_enter(ts)
+
+
+class TestDailyFlatten:
+    """The routine ends every day flat at daily_close (default 19:30 London)."""
+
+    def test_flattens_at_the_daily_close(self, gate):
+        # Winter Monday: 19:30 London is 19:30 UTC.
+        verdict = gate.must_flatten(utc(2026, 3, 9, 19, 30))
+        assert verdict.allowed and verdict.kind == "daily"
+
+    def test_does_not_flatten_a_minute_early(self, gate):
+        assert not gate.must_flatten(utc(2026, 3, 9, 19, 29)).allowed
+
+    def test_daily_close_follows_summer_time(self, gate):
+        # Summer Monday: 19:30 London is 18:30 UTC.
+        assert gate.must_flatten(utc(2026, 6, 8, 18, 30)).allowed
+        assert not gate.must_flatten(utc(2026, 6, 8, 18, 29)).allowed
+
+    def test_daily_rule_covers_friday_too(self, gate):
+        # Friday 19:30 London: daily flatten fires first, before friday_close.
+        verdict = gate.must_flatten(utc(2026, 3, 13, 19, 30))
+        assert verdict.allowed and verdict.kind == "daily"
+
+    def test_weekend_rule_still_labelled_weekend(self, gate):
+        assert gate.must_flatten(utc(2026, 6, 13, 12)).kind == "weekend"
+
+    def test_can_be_disabled_leaving_only_the_weekend_rule(self):
+        cfg = SessionConfig(flatten_daily=False)
+        g = SessionGate(cfg)
+        assert not g.must_flatten(utc(2026, 3, 9, 19, 30)).allowed          # Monday night: hold
+        assert g.must_flatten(utc(2026, 3, 13, 20, 0)).kind == "weekend"    # Friday close: flatten
+
+    def test_new_entries_are_already_blocked_before_the_close(self, gate):
+        # The windows end at 17:00; the close is 19:30. Between them: no entries.
+        assert not gate.can_enter(utc(2026, 3, 9, 18)).allowed

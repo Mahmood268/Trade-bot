@@ -3,7 +3,7 @@
 A gold trading bot for MetaTrader 5, with a deterministic strategy core and a
 layer of Claude agents that can only ever *reduce* risk.
 
-**Status: Slice 2 of 4 — strategy, risk and backtester.** Nothing trades yet:
+**Status: Slice 2 of 4 complete, plus the daily routine.** Nothing trades yet:
 there is no executor and no engine loop. `dry_run: true` is the shipped default
 and sending real orders requires two independent opt-ins.
 
@@ -37,14 +37,21 @@ Authority flows one way, and no agent can widen risk:
 strategy (code) → agents may VETO or SHRINK → Risk Warden (code) → executor
 ```
 
-| Agent | Model | Role | Authority |
+The day runs to a fixed routine keyed to the London open — pre-flight at 07:30,
+two hunt windows, a wind-down, a flatten at 19:30, a debrief. Every day ends
+flat. Phases decide what is *permitted*; inside a phase the engine is
+event-driven. Full schedule and roster in [`docs/AGENTS.md`](docs/AGENTS.md).
+
+| Agent | Runs | Model / effort | Authority |
 |---|---|---|---|
-| News Scout | Sonnet 5 | Live gold/USD coverage → structured brief | Advisory |
-| Regime Analyst | Sonnet 5 | H4/D1 structure + volatility → regime label | Reduce only |
-| Decision Agent | Opus 5 | The main call on each signal | Veto / shrink |
-| Devil's Advocate | Opus 5 | Argues the case against each trade | Veto / shrink |
-| Trade Manager | Opus 5 | Manages open positions | Reduce risk only |
-| Performance Reviewer | Opus 5 | Weekly journal analysis | Reports only |
+| Session Supervisor | Once, pre-flight | Opus 5 / xhigh | Day plan: normal / reduced / stand aside. **Reduce only.** |
+| News Scout | Pre-flight + hourly | Opus 5 / high | Advisory |
+| Regime Analyst | Pre-flight + every 4h | Opus 5 / high | Reduce only |
+| Decision Agent | Per signal | Opus 5 / xhigh | Veto / shrink |
+| Devil's Advocate | Per signal | Opus 5 / xhigh | Veto / shrink |
+| Trade Manager | While a position is open | Opus 5 / high | Reduce risk only |
+| Day Auditor | Once, debrief | Opus 5 / high | Reports only |
+| Performance Reviewer | Weekly | Opus 5 / xhigh | Reports only |
 
 Deterministic by design, never an agent: **risk management, order execution,
 news-event blackout timing, the connection watchdog, and signal generation.**
@@ -54,6 +61,7 @@ news-event blackout timing, the connection watchdog, and signal generation.**
 - Every order carries a **server-side stop loss** — a crashed bot or sleeping PC still has protection.
 - Two independent opt-ins required for live orders (`dry_run: false` **and** an exact confirmation phrase).
 - Daily loss cap, equity floor, consecutive-loss halt, spread gate, daily trade cap.
+- Every day ends flat at 19:30 London — no overnight holds, no weekend gaps.
 - Magic-number isolation — the bot cannot see or touch trades you place by hand.
 - Agents fail **closed**: an API error, timeout, malformed response or refusal means *no trade*.
 

@@ -315,11 +315,15 @@ class Backtester:
 
             bar_close_time = ts.to_pydatetime() + sub_bars.duration
 
-            # 3. Weekend flattening — a stop cannot protect against a Monday gap.
-            if open_trades and self.gate.must_flatten(bar_close_time).allowed:
+            # 3. Flattening. Daily: the routine ends every day flat. Weekend: a
+            #    stop cannot protect against a Monday gap. Labelled separately so
+            #    the journal can show what the end-of-day rule costs or saves.
+            flatten = self.gate.must_flatten(bar_close_time)
+            if open_trades and flatten.allowed:
+                label = "eod_flatten" if flatten.kind == "daily" else "weekend_flatten"
                 for trade in list(open_trades):
                     price = _exit_price(trade.direction, float(bar["close"]), spread_price, 0.0)
-                    self._close_trade(trade, price, bar_close_time, "weekend_flatten")
+                    self._close_trade(trade, price, bar_close_time, label)
                     balance += trade.pnl
                     realised_today += trade.pnl
                     consecutive_losses = consecutive_losses + 1 if trade.pnl <= 0 else 0

@@ -28,7 +28,16 @@ from goldbot.config import (
     load_config,
 )
 
-AGENTS = ("news_scout", "regime_analyst", "decision", "devils_advocate", "trade_manager", "reviewer")
+AGENTS = (
+    "session_supervisor",
+    "news_scout",
+    "regime_analyst",
+    "decision",
+    "devils_advocate",
+    "trade_manager",
+    "day_auditor",
+    "reviewer",
+)
 
 
 class TestAgentDefaults:
@@ -42,17 +51,23 @@ class TestAgentDefaults:
             )
 
     def test_money_decisions_get_the_higher_effort(self):
-        # The two agents deciding whether a trade happens, and the weekly review
-        # that proposes parameter changes: the three whose output is hardest to
-        # check after the fact.
+        # The agent that sets the day plan, the two deciding whether a trade
+        # happens, and the weekly review that proposes parameter changes: the
+        # four whose output is hardest to check after the fact.
         agents = AgentsConfig()
-        for name in ("decision", "devils_advocate", "reviewer"):
+        for name in ("session_supervisor", "decision", "devils_advocate", "reviewer"):
             assert getattr(agents, name).effort == "xhigh"
 
     def test_remaining_agents_run_at_high_effort(self):
         agents = AgentsConfig()
-        for name in ("news_scout", "regime_analyst", "trade_manager"):
+        for name in ("news_scout", "regime_analyst", "trade_manager", "day_auditor"):
             assert getattr(agents, name).effort == "high"
+
+    def test_the_day_is_bracketed_by_one_plan_and_one_audit(self):
+        # Supervisor output lasts the whole day; the auditor runs once after it.
+        agents = AgentsConfig()
+        assert agents.session_supervisor.cache_ttl_s >= 12 * 3600
+        assert agents.day_auditor.max_tokens >= 4000
 
     def test_agents_are_disabled_until_deliberately_enabled(self):
         agents = AgentsConfig()
@@ -139,6 +154,42 @@ class TestStrategyValidators:
     def test_an_unsupported_timeframe_is_refused(self):
         with pytest.raises(ValidationError):
             StrategyConfig(timeframe="M3")
+
+
+class TestRoutineValidators:
+    def test_defaults_are_consistent(self):
+        cfg = Config()
+        assert cfg.routine.enabled
+        assert cfg.sessions.flatten_daily
+
+    def test_preflight_must_leave_room_before_the_open(self):
+        # 07:50 for an 08:00 open is ten minutes for a web search and a regime
+        # read — not enough, and a plan produced in a hurry is a bad plan.
+        from goldbot.config import RoutineConfig
+        with pytest.raises(ValidationError, match="preflight"):
+            Config(routine=RoutineConfig(preflight="07:50"))
+
+    def test_preflight_after_the_open_is_refused(self):
+        from goldbot.config import RoutineConfig
+        with pytest.raises(ValidationError, match="preflight"):
+            Config(routine=RoutineConfig(preflight="09:00"))
+
+    def test_daily_close_must_follow_the_last_window(self):
+        from goldbot.config import SessionConfig, SessionWindow
+        with pytest.raises(ValidationError, match="daily_close"):
+            SessionConfig(
+                windows=(SessionWindow(name="w", start="08:00", end="17:00"),),
+                daily_close="16:00",
+            )
+
+    def test_daily_close_is_not_checked_when_daily_flatten_is_off(self):
+        from goldbot.config import SessionConfig, SessionWindow
+        cfg = SessionConfig(
+            windows=(SessionWindow(name="w", start="00:00", end="23:59"),),
+            flatten_daily=False,
+            daily_close="19:30",
+        )
+        assert not cfg.flatten_daily
 
 
 class TestTelegram:

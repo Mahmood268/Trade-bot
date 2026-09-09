@@ -18,7 +18,9 @@ import pytest
 from goldbot.backtest import (
     Backtester, Costs, Trade, _entry_price, _exit_price, default_gold_spec,
 )
-from goldbot.config import Config, RiskConfig, SessionConfig, SessionWindow, StrategyConfig
+from goldbot.config import (
+    Config, RiskConfig, RoutineConfig, SessionConfig, SessionWindow, StrategyConfig,
+)
 from tests.test_strategy import uptrend_with_pullback
 
 COSTS = Costs(spread_points=25.0, slippage_points=2.0, commission_per_lot_round_turn=7.0)
@@ -39,8 +41,10 @@ def config(**strategy_overrides) -> Config:
             timezone="UTC",
             windows=(SessionWindow(name="always", start="00:00", end="23:59"),),
             trade_days=(0, 1, 2, 3, 4, 5, 6),
+            flatten_daily=False,
             flatten_before_weekend=False,
         ),
+        routine=RoutineConfig(enabled=False),
     )
 
 
@@ -331,8 +335,10 @@ class TestFullRun:
                 timezone="UTC",
                 windows=(SessionWindow(name="tiny", start="08:00", end="08:15"),),
                 trade_days=(0, 1, 2, 3, 4),
+                flatten_daily=False,
                 flatten_before_weekend=False,
             ),
+            routine=RoutineConfig(enabled=False),
         )
         result = Backtester(narrow, spec=default_gold_spec(), costs=COSTS).run(self.series())
         for trade in result.trades:
@@ -349,12 +355,40 @@ class TestFullRun:
                 timezone="UTC",
                 windows=(SessionWindow(name="always", start="00:00", end="23:59"),),
                 trade_days=(0, 1, 2, 3, 4),
+                flatten_daily=False,
                 flatten_before_weekend=True,
                 friday_close="20:00",
             ),
+            routine=RoutineConfig(enabled=False),
         )
         result = Backtester(weekend, spec=default_gold_spec(), costs=COSTS).run(self.series())
         assert any(t.exit_reason == "weekend_flatten" for t in result.closed)
+
+    def test_daily_flatten_ends_every_day_flat(self):
+        # The routine's end-of-day rule: nothing is held overnight. Every trade
+        # still open at the close is closed there and labelled, so the journal
+        # can show what the rule costs or saves versus letting winners run.
+        cfg = config(tp_r_multiple=20.0, breakeven_at_r=None, trail_after_r=None)
+        daily = Config(
+            strategy=cfg.strategy,
+            risk=cfg.risk,
+            sessions=SessionConfig(
+                timezone="UTC",
+                windows=(SessionWindow(name="day", start="00:00", end="18:00"),),
+                trade_days=(0, 1, 2, 3, 4, 5, 6),
+                flatten_daily=True,
+                daily_close="19:30",
+                flatten_before_weekend=False,
+            ),
+            routine=RoutineConfig(enabled=False),
+        )
+        result = Backtester(daily, spec=default_gold_spec(), costs=COSTS).run(self.series())
+        assert any(t.exit_reason == "eod_flatten" for t in result.closed)
+        for trade in result.closed:
+            if trade.exit_reason == "eod_flatten":
+                assert trade.exit_time.hour >= 19
+            # Nothing crosses a day boundary.
+            assert trade.exit_time.date() == trade.entry_time.date()
 
     def test_weekly_returns_are_reported_against_the_goal(self):
         result = make_tester().run(self.series())
