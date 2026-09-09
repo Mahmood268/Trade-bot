@@ -65,6 +65,20 @@ def _bad_server(value: str) -> str | None:
     return None
 
 
+def is_store_python() -> bool:
+    """True if this is the Microsoft Store build of Python.
+
+    It installs under ...\\AppData\\Local\\Microsoft\\WindowsApps\\ and runs inside an
+    app container with a virtualised filesystem and registry. That sandbox is a
+    poor fit for MetaTrader5, which has to reach a separate desktop process over
+    Windows IPC — and when it fails it fails obscurely, so it is worth naming
+    up front rather than debugging later.
+    """
+    # Match on the folder name alone: path separators differ, and this has to be
+    # checkable from a test running on any OS.
+    return any("windowsapps" in p.lower() for p in (sys.executable, sys.prefix))
+
+
 def check_environment() -> bool:
     """Report anything that would make the rest pointless. True if we can go on."""
     print("Checking your setup")
@@ -82,12 +96,21 @@ def check_environment() -> bool:
         print(f"{WARN}You are on {platform.system()}. MetaTrader5 is Windows-only, so the")
         print("        connection check will not work here — but the config will still be written.")
     else:
+        if is_store_python():
+            print(f"{WARN}This is the Microsoft Store build of Python:")
+            print(f"        {sys.executable}")
+            print("        It runs sandboxed, which often stops MetaTrader5 from reaching the")
+            print("        terminal. If the connection check fails with an initialize() error,")
+            print("        install Python from python.org (64-bit), tick 'Add python.exe to")
+            print("        PATH', and run setup again. Nothing else needs redoing.")
+
         try:
             import MetaTrader5  # noqa: F401
 
             print(f"{OK}MetaTrader5 package is installed")
         except ImportError:
-            print(f"{FAIL}MetaTrader5 is not installed. Run:  pip install -r requirements.txt")
+            print(f"{FAIL}MetaTrader5 is not installed. Run this first, on its own line:")
+            print("            pip install -r requirements.txt")
             ok = False
 
     if not EXAMPLE.exists():
