@@ -3,9 +3,13 @@
 A gold trading bot for MetaTrader 5, with a deterministic strategy core and a
 layer of Claude agents that can only ever *reduce* risk.
 
-**Status: Slice 2 of 4 complete, plus the daily routine.** Nothing trades yet:
-there is no executor and no engine loop. `dry_run: true` is the shipped default
-and sending real orders requires two independent opt-ins.
+**Status: Slice 3 of 4 complete — the bot runs end to end in dry-run.**
+Strategy, Risk Warden, executor, engine loop, journal, calendar blackouts,
+Telegram alerts and the daily routine are built and tested (329 tests). In
+dry-run it opens *paper* positions at live prices and manages them on live
+ticks; **no order is sent**. `dry_run: true` is the shipped default and sending
+real orders requires two independent opt-ins. The eight Claude agents are
+Slice 4 and are not yet wired in.
 
 ## Start here
 
@@ -24,6 +28,10 @@ python scripts/export_history.py --months 12
 python scripts/run_backtest.py --data data/xauusd_m15.parquet \
                                --m1 data/xauusd_m1.parquet
 python scripts/check_no_lookahead.py                # proves the backtest isn't cheating
+
+# on Windows — the bot itself, dry run
+python scripts/run_bot.py --cycles 3                # smoke test: start, 3 cycles, stop
+python scripts/run_bot.py                           # leave it running
 ```
 
 [`docs/STRATEGY.md`](docs/STRATEGY.md) — what the rules actually are, how

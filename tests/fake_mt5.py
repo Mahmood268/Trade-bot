@@ -114,6 +114,10 @@ class FakeMT5:
         self.order_script: list[int | None] = []
         self.sent_requests: list[dict[str, Any]] = []
         self.init_should_fail = False
+        # Injectable clock (epoch seconds). Bar and tick times derive from it,
+        # so an engine test that advances a fake clock sees new bars close
+        # instead of the same wall-clock second forever.
+        self.clock: Any = _time.time
 
     # -- lifecycle -----------------------------------------------------------
     def initialize(self, **kwargs: Any) -> bool:
@@ -159,7 +163,7 @@ class FakeMT5:
         if sym is None or not sym.visible:
             return None
         return type(
-            "Tick", (), {"time": int(_time.time()), "bid": sym.bid, "ask": sym.ask}
+            "Tick", (), {"time": int(self.clock()), "bid": sym.bid, "ask": sym.ask}
         )()
 
     def copy_rates_from_pos(self, symbol: str, timeframe: int, start: int, count: int) -> Any:
@@ -168,7 +172,7 @@ class FakeMT5:
         sym = self.symbols.get(symbol)
         if sym is None:
             return None
-        now = int(_time.time())
+        now = int(self.clock())
         step = 900
         rows = []
         for i in range(count):

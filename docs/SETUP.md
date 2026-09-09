@@ -191,3 +191,79 @@ The order of operations from here is deliberate:
 2. Dry run for a few days — the full pipeline, journalling every decision, sending nothing.
 3. Demo trading for 2–4 weeks with real order flow.
 4. Only then, and only if the numbers justify it, discuss a small live account.
+
+---
+
+## 8. Run the bot (dry run)
+
+Everything above was preparation. This is the first time the bot actually runs
+its full loop — and in dry-run mode it still sends **no orders**.
+
+```
+python scripts\run_bot.py --cycles 3
+```
+
+`--cycles 3` runs three loop iterations and exits, so you can see it start up,
+connect, and shut down cleanly. A healthy first run looks like this:
+
+```
+INFO  run_bot: dry run: no orders will be sent
+INFO  goldbot.mt5_client: Connected to MT5: account 51234567 on ICMarketsSC-Demo, balance 5000.00 USD
+INFO  goldbot.mt5_client: Resolved gold symbol: XAUUSD
+INFO  goldbot.calendar: calendar refreshed: 6 relevant events this week
+INFO  goldbot.engine: goldbot started (DRY RUN — no orders will be sent) | account ... | symbol XAUUSD, timeframe M15 | adopted 0 open position(s)
+```
+
+and your phone gets the same "goldbot started" message on Telegram. If Telegram
+is enabled and you get nothing, check the three things in order: the bot token
+is set as `TELEGRAM_BOT_TOKEN`, the chat ID is your **numeric** ID from
+@userinfobot, and you have sent the bot at least one message (Telegram bots
+cannot message you first).
+
+Then leave it running for real:
+
+```
+python scripts\run_bot.py
+```
+
+or double-click `scripts\run_bot.bat`. It sleeps until the next phase boundary
+or bar close, so it is idle most of the time. Stop it with **Ctrl-C**.
+
+### What you will see during a dry-run day
+
+| When (London) | What happens |
+|---|---|
+| 07:30 | Phase → pre-flight (agents join here in Stage B; for now it's logged) |
+| 08:00 | Phase → hunt. Each closed M15 bar is evaluated. A signal that passes the session, calendar and Risk Warden gates opens a **paper** position at the live ask/bid — Telegram: `[DRY RUN] OPEN BUY 0.12 lots @ ...` |
+| while open | Paper positions are stopped, targeted, moved to break-even and trailed on live ticks — Telegram: `CLOSED #900000 ... pnl -51.00 (stop)` |
+| 12:00–13:30 | Phase → hold. Manages only. |
+| 17:00 | Phase → wind-down. Tighten and exit only. |
+| 19:30 | Phase → flatten. Everything closed — Telegram: `Flattened 1 position(s) — eod_flatten. Day P&L so far +48.00` |
+
+Every one of those is also a row in `data/journal.db`. That file is the record,
+and later the dashboard's data source.
+
+### Commands from your phone
+
+`/status` `/pnl` `/pause` `/resume` `/flat` `/help` — sent to your bot in
+Telegram. `/flat` closes everything and pauses; `/resume` un-pauses and also
+clears a consecutive-loss halt. Only your chat ID is honoured; anyone else who
+finds the bot gets silence.
+
+### When to go beyond dry run
+
+Not yet. Leave it in dry run for **at least two or three trading days**, read
+the journal, and check the paper trades make sense against the chart. Then we
+look at the numbers together before `dry_run: false` is even discussed — and
+that step needs *both* opt-ins in the config, on purpose.
+
+---
+
+## Troubleshooting the bot itself
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `calendar download failed ... keeping cache from None` | ForexFactory unreachable | Harmless at start-up — it retries daily. Until it succeeds, entries are **blocked** (treated as a blackout). If it never succeeds, check your firewall allows `nfs.faireconomy.media`. |
+| `terminal not connected — attempting reconnect` every cycle | MT5 closed, or lost login | Open the terminal and log in. The bot reconnects on its own. |
+| Bot opens nothing all day | Look at `decisions` in the journal | Every declined signal has a `reason`. Spread over the cap and "outside the trading windows" are the usual ones. |
+| Telegram silent | See section 4 | Token, numeric chat ID, and you must message the bot first. |
