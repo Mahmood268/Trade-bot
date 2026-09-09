@@ -65,18 +65,24 @@ def _bad_server(value: str) -> str | None:
     return None
 
 
+# The MSIX package family name of the Store build. Matching this rather than the
+# WindowsApps folder matters: app execution aliases — including the ones the
+# python.org install manager creates — also live under WindowsApps, so matching
+# the folder alone flags a perfectly good python.org install as sandboxed.
+STORE_PACKAGE_MARKER = "pythonsoftwarefoundation.python"
+
+
 def is_store_python() -> bool:
     """True if this is the Microsoft Store build of Python.
 
-    It installs under ...\\AppData\\Local\\Microsoft\\WindowsApps\\ and runs inside an
-    app container with a virtualised filesystem and registry. That sandbox is a
-    poor fit for MetaTrader5, which has to reach a separate desktop process over
-    Windows IPC — and when it fails it fails obscurely, so it is worth naming
-    up front rather than debugging later.
+    It runs inside an app container with a virtualised filesystem and registry.
+    That sandbox is a poor fit for MetaTrader5, which has to reach a separate
+    desktop process over Windows IPC — and when it fails it fails obscurely, so
+    it is worth naming up front rather than debugging later.
     """
-    # Match on the folder name alone: path separators differ, and this has to be
-    # checkable from a test running on any OS.
-    return any("windowsapps" in p.lower() for p in (sys.executable, sys.prefix))
+    return any(
+        STORE_PACKAGE_MARKER in path.lower() for path in (sys.executable, sys.prefix)
+    )
 
 
 def check_environment() -> bool:
