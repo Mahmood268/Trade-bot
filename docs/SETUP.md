@@ -30,12 +30,16 @@ Total time: about 45 minutes, most of it waiting for installers.
 
 ---
 
-## 2. Python 3.11 (64-bit)
+## 2. Python (64-bit)
 
-The `MetaTrader5` package ships only as a **64-bit Windows** wheel. 32-bit Python
-will fail to install it with a confusing error.
+The `MetaTrader5` package ships **only as 64-bit Windows wheels** — every file
+on PyPI ends in `win_amd64`. 32-bit Python fails to install it with a confusing
+error, and there is no macOS or Linux build at all.
 
-1. Download **Python 3.11.x, Windows installer (64-bit)** from python.org.
+**Any Python from 3.10 to 3.14 works** (3.12 included — there is a `cp312`
+wheel). What matters is the *bitness*, not the version.
+
+1. Download a **64-bit Windows** Python installer from python.org.
 2. During install, tick **"Add python.exe to PATH"**.
 3. Verify in a new Command Prompt — it must say `64 bit`:
 
