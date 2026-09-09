@@ -189,7 +189,8 @@ def main() -> int:
     print("=" * 74)
     if exit_code == 0:
         print("  All checks passed. Nothing was traded.")
-        print("  Next: keep dry_run: true and wait for the strategy slice.")
+        print("  Next: python scripts/export_history.py --months 12")
+        print("  Then: python scripts/run_bot.py --cycles 3   (still sends no orders)")
     else:
         print("  Some checks FAILED — see above. Do not proceed until they are resolved.")
     print("=" * 74)

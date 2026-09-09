@@ -68,10 +68,16 @@ The agents are disabled by default, so you can skip this until we switch them on
 
    Close and reopen your Command Prompt for it to take effect.
 
-**Cost:** with the default per-agent models and event-driven triggering, expect
-roughly **$1.25/day (~$38/month)**. On a $5,000 account that is about 0.75% of
-equity per month, which comes straight out of returns — so `daily_cost_limit_usd`
-in the config stops the agents once the day's spend passes your ceiling.
+**Cost:** all eight agents run on Opus 5, so expect roughly **$4–8/day
+(~$120–240/month)**. On a $5,000 account that is **2.5–5% of equity per month**,
+which comes straight out of returns — more than many strategies produce in edge.
+This is the single biggest structural problem with running eight Opus agents
+against a small account, and it is why `daily_cost_limit_usd` (default $8) stops
+them once the day's spend passes your ceiling. The lever is *cadence*, not model
+choice: `trade_manager.min_interval_s` and `news_scout.cache_ttl_s` dominate the
+bill, and doubling both roughly halves it.
+
+The agents are all `enabled: false` today, so until Slice 4 this costs nothing.
 
 ---
 
@@ -169,10 +175,15 @@ Once the connection check passes:
 python scripts/export_history.py --months 12
 ```
 
-This writes `data/xauusd_m15.parquet` and `data/xauusd_m1.parquet`. The M1 file
-matters: the backtester uses it to determine whether a stop or a target was hit
-first *inside* a bar. Without it, backtest results are optimistic in a way live
-trading never reproduces.
+This writes **three** files — `data/xauusd_m5.parquet`,
+`data/xauusd_m15.parquet` and `data/xauusd_m1.parquet`. Both scalping
+timeframes come down in one pass because exporting is the slow, Windows-only
+step, and the M5-vs-M15 question is then settled from data with
+`scripts/compare_timeframes.py` without coming back to the terminal.
+
+The M1 file matters most: the backtester uses it to determine whether a stop or a
+target was hit first *inside* a bar. Without it, backtest results are optimistic
+in a way live trading never reproduces.
 
 If it reports far fewer bars than requested, scroll further back on the chart in
 the terminal and re-run — brokers only serve history you have viewed.
@@ -181,9 +192,9 @@ the terminal and re-run — brokers only serve history you have viewed.
 
 ## What happens next
 
-Nothing trades yet. The next slice adds the strategy, the Risk Warden and the
-backtester, and we look at whether the strategy has any edge *before* it is
-allowed near an order.
+Nothing trades yet. The strategy, the Risk Warden, the backtester, the executor
+and the engine are all built — see section 8 below for running the bot in
+dry-run. The eight Claude agents are the next slice.
 
 The order of operations from here is deliberate:
 
