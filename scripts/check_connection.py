@@ -113,6 +113,30 @@ def main() -> int:
         )
         print(f"        value of a 1-point move on 1.00 lot: "
               f"{spec.value_per_point_per_lot:.4f} {account.currency}")
+        source = (
+            "broker's order_calc_profit" if spec.broker_value_per_point
+            else "tick_value/tick_size" if spec.tick_value_per_point
+            else "contract size (fallback)"
+        )
+        print(f"        source: {source}")
+        if spec.broker_value_per_point and spec.tick_value_per_point:
+            print(f"        (tick_value implies {spec.tick_value_per_point:.4f} — "
+                  f"the calculator is authoritative)")
+
+        # --- 4b. contract sanity ---------------------------------------------
+        # A wrong point value mis-sizes EVERY position by that factor, and an
+        # understated one oversizes. This is the check that has to fail loudly.
+        sane, why = client.contract_sanity()
+        if sane:
+            print(f"{OK}point value agrees with the contract")
+            print(f"        {why}")
+        else:
+            exit_code = 1
+            print(f"{FAIL}POINT VALUE IS NOT TRUSTWORTHY — do not trade this account")
+            print(f"        {why}")
+            print("        Every position would be sized by that factor. Pin the correct")
+            print("        value with mt5.value_per_point_override in config, or use a")
+            print("        broker whose contract specification is self-consistent.")
 
         # --- 5. sizing sanity ------------------------------------------------
         tick = client.get_tick()

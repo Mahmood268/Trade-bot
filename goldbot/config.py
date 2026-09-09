@@ -84,6 +84,14 @@ class MT5Config(_Base):
     deviation_points: int = Field(
         default=20, ge=0, le=500, description="Max slippage tolerated on market orders, in points."
     )
+    value_per_point_override: float | None = Field(
+        default=None,
+        gt=0,
+        description="Account-currency value of a 1-point move on 1.00 lot. Leave null: the "
+        "bot asks the broker's own calculator. Set it ONLY when check_connection reports "
+        "that the broker's contract specification is self-contradictory, and only to a "
+        "value you have verified — it overrides every position size in the system.",
+    )
     connect_timeout_s: float = Field(default=30.0, gt=0)
 
 

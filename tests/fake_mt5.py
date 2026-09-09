@@ -111,6 +111,11 @@ class FakeMT5:
 
         # Scripted failures, popped per order_send call. Each entry is a retcode
         # or None for "succeed".
+        # Account-currency per unit of profit-currency move. 1.0 = same currency;
+        # 0.79 models a GBP account holding a USD-denominated contract.
+        self.profit_rate = 1.0
+        self.calc_profit_available = True
+        self.account_currency = "USD"
         self.order_script: list[int | None] = []
         self.sent_requests: list[dict[str, Any]] = []
         self.init_should_fail = False
@@ -141,7 +146,7 @@ class FakeMT5:
         return type(
             "AccountInfo", (), {
                 "login": 51234567, "balance": self.balance, "equity": equity,
-                "margin": 0.0, "margin_free": equity, "currency": "USD",
+                "margin": 0.0, "margin_free": equity, "currency": self.account_currency,
                 "leverage": 500, "server": "FakeBroker-Demo",
                 "trade_allowed": self.trade_allowed,
             },
@@ -157,6 +162,24 @@ class FakeMT5:
             return False
         sym.visible = enable
         return True
+
+    def order_calc_profit(
+        self, action: int, symbol: str, volume: float, price_open: float, price_close: float
+    ) -> float | None:
+        """The broker's own profit calculator, as MT5 exposes it.
+
+        Modelled on the real thing: contract size times the price move, converted
+        to the account currency. `profit_rate` lets a test make this disagree
+        with `trade_tick_value`, which is the situation that matters — a broker
+        reporting a tick value the calculator contradicts.
+        """
+        sym = self.symbols.get(symbol)
+        if sym is None or not self.calc_profit_available:
+            return None
+        move = price_close - price_open
+        if action == ORDER_TYPE_SELL:
+            move = -move
+        return move * sym.trade_contract_size * volume * self.profit_rate
 
     def symbol_info_tick(self, name: str) -> Any:
         sym = self.symbols.get(name)

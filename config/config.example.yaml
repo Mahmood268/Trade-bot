@@ -61,6 +61,18 @@ mt5:
   # carrying this number — trades you place by hand are invisible to it.
   magic: 20260907
   deviation_points: 20
+
+  # Account-currency value of a 1-point move on 1.00 lot.
+  #
+  # LEAVE THIS NULL. The bot asks the broker's own order_calc_profit(), which is
+  # the number the broker will actually settle against. Set it only if
+  # check_connection.py reports that the broker's contract specification
+  # contradicts itself — some demo servers quote a tick_value that is wrong by a
+  # large factor, and because lots = risk / (stop x this value), an understated
+  # value oversizes every single position by that same factor.
+  #
+  # For standard 100oz XAUUSD on a USD account the correct value is 1.00.
+  value_per_point_override: null
   connect_timeout_s: 30.0
 
 # -----------------------------------------------------------------------------

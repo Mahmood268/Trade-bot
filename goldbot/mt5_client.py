@@ -18,7 +18,7 @@ import logging
 import math
 import platform
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -111,17 +111,48 @@ class SymbolSpec:
     tick_size: float
     filling_modes: int            # bitmask of supported order filling modes
     currency_profit: str
+    # Value of a one-point move on 1.00 lot, obtained from the broker's own
+    # order_calc_profit(). Authoritative when present: it is the number the
+    # broker will actually settle against, with contract size and any FX
+    # conversion already applied.
+    broker_value_per_point: float | None = None
 
     @property
     def value_per_point_per_lot(self) -> float:
         """Account-currency P&L for a one-point move on a 1.00 lot position.
 
-        Prefers the broker's own tick_value/tick_size (correct even when the profit
-        currency differs from the account currency), falling back to the contract
-        size when the broker reports nothing usable.
+        This is the multiplier every position size in the system is divided by,
+        so getting it wrong mis-sizes every trade by the same factor — silently,
+        and in the dangerous direction if the value is understated.
+
+        Order of preference:
+
+        1. ``broker_value_per_point`` — asked of the broker directly.
+        2. ``tick_value / tick_size`` — the broker's quoted tick economics.
+        3. ``contract_size * point`` — arithmetic, correct only when the profit
+           currency is the account currency.
+
+        Brokers do report a wrong or stale ``tick_value``; a MetaQuotes demo was
+        seen quoting 0.10 GBP per point on a 100oz gold contract whose true value
+        was about 0.79, which would have sized every position roughly 8x too
+        large. :meth:`MT5Client.contract_sanity` exists to catch that.
         """
+        if self.broker_value_per_point and self.broker_value_per_point > 0:
+            return self.broker_value_per_point
         if self.tick_value > 0 and self.tick_size > 0:
             return self.tick_value * (self.point / self.tick_size)
+        return self.contract_size * self.point
+
+    @property
+    def tick_value_per_point(self) -> float:
+        """What tick_value/tick_size implies, ignoring the broker calculator."""
+        if self.tick_value > 0 and self.tick_size > 0:
+            return self.tick_value * (self.point / self.tick_size)
+        return 0.0
+
+    @property
+    def contract_value_per_point(self) -> float:
+        """What the contract size implies, in the PROFIT currency."""
         return self.contract_size * self.point
 
     def normalize_price(self, price: float) -> float:
@@ -366,7 +397,108 @@ class MT5Client:
             filling_modes=int(getattr(info, "filling_mode", 0)),
             currency_profit=str(getattr(info, "currency_profit", "USD")),
         )
+        override = getattr(self.cfg, "value_per_point_override", None)
+        if override:
+            # A deliberate, verified override beats every source, including the
+            # broker — it exists precisely for brokers whose numbers disagree.
+            log.warning(
+                "using configured value_per_point_override=%s for %s, ignoring broker values",
+                override, name,
+            )
+            self._spec = replace(self._spec, broker_value_per_point=float(override))
+            return self._spec
+
+        broker_value = self._broker_value_per_point(name, self._spec, info)
+        if broker_value is not None:
+            self._spec = replace(self._spec, broker_value_per_point=broker_value)
         return self._spec
+
+    def _broker_value_per_point(self, name: str, spec: SymbolSpec, info: Any) -> float | None:
+        """Ask the terminal what a one-point move on 1.00 lot is actually worth.
+
+        ``order_calc_profit`` is the broker's own calculator — the same one that
+        settles the trade — so it already accounts for contract size and for the
+        profit currency differing from the account currency. That makes it a
+        better source than ``tick_value``, which some brokers report wrong or
+        leave stale.
+
+        Returns None if the terminal cannot answer, in which case the tick
+        economics are used and :meth:`contract_sanity` will flag any conflict.
+        """
+        calc = getattr(self.mt5, "order_calc_profit", None)
+        if calc is None:
+            return None
+        price = float(getattr(info, "ask", 0.0) or getattr(info, "bid", 0.0) or 0.0)
+        if price <= 0:
+            tick = self.mt5.symbol_info_tick(name)
+            price = float(getattr(tick, "ask", 0.0)) if tick is not None else 0.0
+        if price <= 0:
+            return None
+        try:
+            profit = calc(self.mt5.ORDER_TYPE_BUY, name, 1.0, price, price + spec.point)
+        except Exception as exc:  # noqa: BLE001 - a broken calculator must not stop startup
+            log.warning("order_calc_profit failed for %s: %s", name, exc)
+            return None
+        if profit is None:
+            code, msg = self.mt5.last_error()
+            log.warning("order_calc_profit(%s) returned None: [%s] %s", name, code, msg)
+            return None
+        value = abs(float(profit))
+        return value if value > 0 else None
+
+    def contract_sanity(self) -> tuple[bool, str]:
+        """Cross-check the point value against what the contract size implies.
+
+        The single most dangerous silent failure in this system is a wrong
+        value-per-point: it mis-sizes every position by that factor, and an
+        understated value oversizes — so the account risks multiples of what the
+        Risk Warden authorised while every number on screen still reads 1%.
+
+        Returns ``(ok, explanation)``. When the profit currency is the account
+        currency the two must agree closely. When they differ the ratio is an FX
+        rate, which cannot be validated without a quote, so only an implausible
+        one is rejected.
+        """
+        spec = self.symbol_spec()
+        account = self.account_info()
+        used = spec.value_per_point_per_lot
+        implied = spec.contract_value_per_point
+
+        if implied <= 0 or used <= 0:
+            return False, (
+                f"cannot value a point for {spec.name}: using {used}, contract implies "
+                f"{implied}. Sizing is not safe."
+            )
+
+        ratio = used / implied
+        same_currency = spec.currency_profit.upper() == account.currency.upper()
+
+        if same_currency:
+            if 0.95 <= ratio <= 1.05:
+                return True, (
+                    f"{used:.4f} {account.currency}/point agrees with the "
+                    f"{spec.contract_size:g} oz contract"
+                )
+            return False, (
+                f"point value {used:.4f} {account.currency} disagrees with the "
+                f"{spec.contract_size:g} oz contract, which implies "
+                f"{implied:.4f} (ratio {ratio:.3f}). Same currency, so these should match."
+            )
+
+        # Different currencies: the ratio is an FX rate. Majors sit near 1;
+        # JPY-denominated accounts sit near 0.007. Anything outside this band is
+        # not an exchange rate, it is a bad number.
+        if 0.005 <= ratio <= 200.0:
+            return True, (
+                f"{used:.4f} {account.currency}/point vs {implied:.4f} "
+                f"{spec.currency_profit} implied — ratio {ratio:.4f}, a plausible "
+                f"{spec.currency_profit}/{account.currency} rate"
+            )
+        return False, (
+            f"point value {used:.4f} {account.currency} against {implied:.4f} "
+            f"{spec.currency_profit} implied is a ratio of {ratio:.4f}, which is not a "
+            f"plausible exchange rate. Every position would be sized by this factor."
+        )
 
     # -- market data ---------------------------------------------------------
 

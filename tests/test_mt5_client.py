@@ -286,3 +286,77 @@ def test_closed_bars_exclude_the_forming_bar():
     all_bars = client.get_bars("M15", 51)
     closed = client.get_closed_bars("M15", 50)
     assert closed.index[-1] < all_bars.index[-1]
+
+
+class TestPointValue:
+    """The multiplier every position size is divided by.
+
+    Getting it wrong mis-sizes every trade by that factor, silently. An
+    understated value oversizes, so the account risks a multiple of what the
+    Risk Warden authorised while every number on screen still reads 1%.
+
+    These reproduce a real MetaQuotes demo that quoted 0.10 GBP per point on a
+    100oz gold contract whose true value was about 0.79 — an 8x oversize.
+    """
+
+    def client(self, fake):
+        c = MT5Client(MT5Config(), mt5_module=fake)
+        c.connect()
+        c.discover_symbol()
+        return c
+
+    def test_the_brokers_calculator_wins_over_a_wrong_tick_value(self):
+        fake = FakeMT5()
+        fake.symbols["XAUUSD"].trade_tick_value = 0.10   # what the demo claimed
+        fake.profit_rate = 0.79                          # GBP per USD
+        spec = self.client(fake).symbol_spec()
+        # 100 oz x 0.01 x 0.79 = 0.79 GBP per point, not the 0.10 quoted.
+        assert spec.value_per_point_per_lot == pytest.approx(0.79, abs=1e-9)
+        assert spec.tick_value_per_point == pytest.approx(0.10)
+
+    def test_falls_back_to_tick_value_when_the_calculator_is_unavailable(self):
+        fake = FakeMT5()
+        fake.calc_profit_available = False
+        fake.symbols["XAUUSD"].trade_tick_value = 1.0
+        spec = self.client(fake).symbol_spec()
+        assert spec.value_per_point_per_lot == pytest.approx(1.0)
+
+    def test_sanity_check_passes_on_a_normal_usd_account(self):
+        fake = FakeMT5()
+        ok, why = self.client(fake).contract_sanity()
+        assert ok, why
+
+    def test_sanity_check_rejects_a_value_that_contradicts_the_contract(self):
+        # Same currency, so the two must agree — and 0.10 against 1.00 does not.
+        fake = FakeMT5()
+        fake.calc_profit_available = False
+        fake.symbols["XAUUSD"].trade_tick_value = 0.10
+        ok, why = self.client(fake).contract_sanity()
+        assert not ok
+        assert "disagrees" in why and "ratio" in why
+
+    def test_sanity_check_accepts_a_genuine_fx_conversion(self):
+        fake = FakeMT5()
+        fake.profit_rate = 0.79
+        fake.account_currency = "GBP"
+        ok, why = self.client(fake).contract_sanity()
+        assert ok, why
+        assert "plausible" in why
+
+    def test_sanity_check_rejects_an_implausible_rate(self):
+        fake = FakeMT5()
+        fake.calc_profit_available = False
+        fake.account_currency = "GBP"
+        fake.symbols["XAUUSD"].trade_tick_value = 0.0001
+        ok, why = self.client(fake).contract_sanity()
+        assert not ok
+        assert "not a" in why and "exchange rate" in why
+
+    def test_a_configured_override_beats_every_other_source(self):
+        # The escape hatch for a broker whose own numbers contradict each other.
+        fake = FakeMT5()
+        fake.profit_rate = 0.79
+        c = MT5Client(MT5Config(value_per_point_override=0.85), mt5_module=fake)
+        c.connect()
+        c.discover_symbol()
+        assert c.symbol_spec().value_per_point_per_lot == pytest.approx(0.85)
