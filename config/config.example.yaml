@@ -95,6 +95,17 @@ risk:
 # STRATEGY — the deterministic signal generator (agents cannot change these)
 # -----------------------------------------------------------------------------
 strategy:
+  # M5 and M15 are the two supported scalping timeframes and both are tested.
+  # Which one to run is a question for the backtest, not for taste — run
+  # scripts/compare_timeframes.py on your own exported history and pick from
+  # the numbers.
+  #
+  # The tradeoff: M5 gives roughly 3x the signals, but its ATR is smaller, so
+  # stops are tighter and the SAME spread eats a much larger share of each
+  # trade's risk. A 25-point spread against a 400-point M15 stop is 6% of risk;
+  # against a 150-point M5 stop it is 17%. M5 needs a tight-spread broker to be
+  # viable at all. Check max_spread_points and min_stop_points below if you
+  # switch — M5 setups are the ones min_stop_points will start rejecting.
   timeframe: M15          # M5 | M15 | M30 | H1
   fast_ema: 20
   trend_ema: 50
@@ -163,10 +174,15 @@ calendar:
 # All are disabled by default so the deterministic core can be proven first.
 # Enable them in the staged order described in docs/AGENTS.md.
 #
-# Model choice is deliberate: the two high-volume, low-judgement agents run on
-# Sonnet 5; every agent touching a money decision runs on Opus 5. Agents are
-# EVENT-DRIVEN, not polling — that matters more for the API bill than model
-# choice does.
+# Every agent runs on Opus 5. Each one either reads ambiguous information or
+# touches a money decision, and both are what the cheaper tiers are worse at —
+# a news brief that misreads a Fed statement costs far more than the tokens it
+# saved. Effort is xhigh on the three whose output is hardest to check after
+# the fact (the two deciding whether a trade happens, and the weekly review
+# that proposes parameter changes); high on the rest.
+#
+# Cost is controlled by CADENCE, not by model choice. Agents are event-driven,
+# and daily_cost_limit_usd is the hard backstop. Read the note on it.
 #
 # The API key is read from the environment, never stored here.
 # -----------------------------------------------------------------------------
@@ -174,28 +190,32 @@ agents:
   api_key_env: ANTHROPIC_API_KEY
 
   # 1. Reads live gold/USD/rates coverage → structured news brief. Advisory only.
+  #    The highest-volume agent — cache_ttl_s, not the model, is its cost lever.
   news_scout:
     enabled: false
-    model: claude-sonnet-5
-    effort: medium
+    model: claude-opus-5
+    effort: high
     timeout_s: 60.0
     max_tokens: 4000
     cache_ttl_s: 3600       # past this the brief is "no view", never stale-but-trusted
 
   # 2. Interprets H4/D1 structure and volatility → regime label. May only REDUCE risk.
+  #    Runs a few times a day, so effort here is nearly free.
   regime_analyst:
-    enabled: false
-    model: claude-sonnet-5
-    effort: medium
-    timeout_s: 45.0
-    cache_ttl_s: 14400
-
-  # 3. The main decision maker. May only APPROVE / VETO / REDUCE.
-  decision:
     enabled: false
     model: claude-opus-5
     effort: high
     timeout_s: 45.0
+    cache_ttl_s: 14400
+
+  # 3. The main decision maker. May only APPROVE / VETO / REDUCE.
+  #    xhigh: this is the call that puts money at risk, and a wrong approval is
+  #    not something you can audit until the trade has already lost.
+  decision:
+    enabled: false
+    model: claude-opus-5
+    effort: xhigh
+    timeout_s: 60.0
 
   # 4. Devil's advocate: argues the case against each proposed trade. It is
   #    explicitly allowed to report "no material objection" — a challenger forced
@@ -204,29 +224,43 @@ agents:
   devils_advocate:
     enabled: false
     model: claude-opus-5
-    effort: high
-    timeout_s: 45.0
+    effort: xhigh
+    timeout_s: 60.0
 
   # 5. Manages open positions. May only reduce risk — never widens a stop or adds size.
+  #    THE BIGGEST COST DRIVER: it runs repeatedly while a position is open.
+  #    Raise min_interval_s before touching anything else if the bill is too high.
   trade_manager:
     enabled: false
     model: claude-opus-5
-    effort: medium
-    timeout_s: 30.0
+    effort: high
+    timeout_s: 45.0
     min_interval_s: 300     # cost backstop; the agent is triggered by events, not this clock
 
   # 6. Weekly journal review. Zero live authority — it writes you a report.
+  #    Runs once a week, so xhigh costs pennies and its output shapes what you
+  #    change next week.
   reviewer:
     enabled: false
     model: claude-opus-5
-    effort: high
+    effort: xhigh
     max_tokens: 16000
     timeout_s: 300.0
 
   # Stop calling agents once the day's estimated spend passes this.
-  # On a $5,000 account, $3/day is roughly 1.8%/month of equity in costs — which
-  # would eat most of a realistic return. Keep this tight.
-  daily_cost_limit_usd: 3.0
+  #
+  # READ THIS. With all six agents on Opus 5, realistic spend is $4-8/day. On a
+  # $5,000 account that is 2.5-5% of equity PER MONTH in costs — more than most
+  # strategies produce in edge. This is the single biggest structural problem
+  # with running six Opus agents against a small account.
+  #
+  # The lever is cadence, not model choice: trade_manager.min_interval_s and
+  # news_scout.cache_ttl_s dominate the bill. Doubling both roughly halves it.
+  #
+  # Interaction to be aware of: once this cap trips, fail_closed means no agent
+  # answers and therefore NO new trade is approved for the rest of the day.
+  # Trading stops. That is the safe failure, but it is still a stop.
+  daily_cost_limit_usd: 8.0
 
   # API error, timeout, malformed output or a refusal ⇒ no trade.
   # Missing a trade is free; an unreviewed trade is not.
@@ -234,8 +268,19 @@ agents:
 
 # -----------------------------------------------------------------------------
 # TELEGRAM — alerts and remote kill switch
-#   bot_token: message @BotFather, send /newbot
-#   chat_id:   message @userinfobot
+#
+# NEVER paste the bot token into this file or any other file in the repo. It is
+# a password: anyone holding it can read every alert and send commands to your
+# bot, including the kill switch. Set it as an environment variable and leave
+# the ${...} reference below alone. If a token ever leaks, revoke it in
+# @BotFather (/mybots → your bot → API Token → Revoke current token).
+#
+#   bot_token: from @BotFather, /newbot  → set env var TELEGRAM_BOT_TOKEN
+#   chat_id:   a NUMBER, not a username. It identifies the chat the bot sends
+#              to — your own account, not the bot. Message @userinfobot and it
+#              replies with your numeric Id (e.g. 812345678). The bot's
+#              @username is not a chat id and will not work.
+#              → set env var TELEGRAM_CHAT_ID
 # -----------------------------------------------------------------------------
 telegram:
   enabled: false

@@ -82,13 +82,26 @@ while you are away from the PC.
 
 1. In Telegram, message **@BotFather** → send `/newbot` → follow the prompts →
    copy the **token** it gives you.
-2. Message **@userinfobot** → it replies with your numeric **chat ID**.
+2. Message **@userinfobot** → it replies with your numeric **Id**. That number is
+   your **chat ID**.
 3. Store both as environment variables:
 
    ```
    setx TELEGRAM_BOT_TOKEN "123456:ABC-..."
    setx TELEGRAM_CHAT_ID "987654321"
    ```
+
+> **The chat ID is a number, not a username.** Your bot's `@name` (the handle you
+> chose in `/newbot`) identifies the *bot*; the chat ID identifies *you*, the
+> person it sends alerts to. Putting the bot's username in `chat_id` produces a
+> "chat not found" error and no alerts. Get the number from @userinfobot.
+
+> **Treat the token like a password.** Anyone who has it can read every alert and
+> send your bot commands — including `/flat`, which closes your positions. Never
+> put it in `config.yaml`, a screenshot, a chat message, or a file in the repo:
+> it belongs only in the environment variable above. If it is ever exposed,
+> revoke it immediately in @BotFather: `/mybots` → your bot → **API Token** →
+> **Revoke current token**, then set the new one with `setx`.
 
 Once enabled you get alerts on every entry, exit and error, and can send
 `/status`, `/pause`, `/resume`, `/flat` (close everything) and `/pnl` from your phone.

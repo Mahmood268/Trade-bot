@@ -101,6 +101,54 @@ guards apply:
 
 ---
 
+## Choosing between M5 and M15
+
+Both are supported and both are tested. Which one to trade is a question for
+your data, not for preference:
+
+```bash
+python scripts/compare_timeframes.py --m5 data/xauusd_m5.parquet \
+                                     --m15 data/xauusd_m15.parquet \
+                                     --m1 data/xauusd_m1.parquet
+```
+
+`export_history.py` pulls both timeframes by default, so this needs no second
+trip to the Windows machine.
+
+The tradeoff is structural. M5 produces roughly three times the signals, so more
+chances to be right. But M5's ATR is smaller, so its stops are tighter, and the
+*same* spread then consumes a far larger share of each trade's risk:
+
+| | M15 | M5 |
+|---|---|---|
+| Typical stop | ~400 points | ~150 points |
+| 25-point spread as a share of risk | 6% | 17% |
+
+So M5 wins on opportunity and loses on cost, and the exchange rate between them
+is set entirely by your broker's spread. That is why the comparison sweeps
+several spread values rather than using one. A timeframe that only works at 15
+points is not one you can trade on an account that sees 30 through a news
+release.
+
+Two things to watch in the output:
+
+* **Three times the signals is not three times the trades.** The `mostly blocked
+  by` column shows why. On a losing run, M5 hits the five-consecutive-loss halt
+  far more often, so many of its extra signals arrive while trading is stopped.
+  A timeframe that generates more opportunities and converts fewer of them is
+  telling you about its hit rate, not its throughput.
+* **`min_stop_points` bites M5 first.** The default 100-point floor is 1.00 in
+  gold. M15 stops clear it comfortably; M5 stops sit much closer to it, so
+  raising it excludes M5 setups disproportionately.
+
+One thing held constant across both runs, worth knowing: the EMA and ATR periods
+are *bar counts*, not clock times, so on M5 they look back a third as far in
+wall-clock terms. That is the honest default for an apples-to-apples comparison.
+Tuning periods per timeframe is a separate question, and one to answer only
+after this one.
+
+---
+
 ## Reading a backtest honestly
 
 Run it:

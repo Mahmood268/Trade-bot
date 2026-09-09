@@ -299,10 +299,18 @@ class AgentConfig(_Base):
 class AgentsConfig(_Base):
     """The agent roster.
 
-    Model choice per agent is deliberate. The two high-volume, low-judgement agents
-    run on Sonnet 5; every agent that touches a money decision runs on Opus 5.
-    All are event-driven rather than polling — see docs/AGENTS.md for why that
-    matters more than model choice for the API bill.
+    Every agent runs on Opus 5. Each one either reads ambiguous information or
+    touches a money decision, and both are exactly what the cheaper tiers are
+    worse at — a news brief that misreads a Fed statement costs more than the
+    tokens it saved.
+
+    Effort is raised to ``xhigh`` on the three agents whose output is hardest to
+    check after the fact: the two that decide whether a trade happens, and the
+    weekly review that proposes parameter changes. The rest run at ``high``.
+
+    Cost is controlled by *cadence*, not by model choice: agents are triggered by
+    events, and ``daily_cost_limit_usd`` is the hard backstop. See the note on
+    that field — on a small account, API spend is a real drag on returns.
     """
 
     api_key_env: str = Field(
@@ -312,30 +320,32 @@ class AgentsConfig(_Base):
     )
 
     news_scout: AgentConfig = Field(
-        default=AgentConfig(model="claude-sonnet-5", effort="medium", cache_ttl_s=3600)
+        default=AgentConfig(model="claude-opus-5", effort="high", cache_ttl_s=3600)
     )
     regime_analyst: AgentConfig = Field(
-        default=AgentConfig(model="claude-sonnet-5", effort="medium", cache_ttl_s=14400)
+        default=AgentConfig(model="claude-opus-5", effort="high", cache_ttl_s=14400)
     )
-    decision: AgentConfig = Field(default=AgentConfig(model="claude-opus-5", effort="high"))
+    decision: AgentConfig = Field(default=AgentConfig(model="claude-opus-5", effort="xhigh"))
     devils_advocate: AgentConfig = Field(
-        default=AgentConfig(
-            model="claude-opus-5",
-            effort="high",
-        )
+        default=AgentConfig(model="claude-opus-5", effort="xhigh")
     )
     trade_manager: AgentConfig = Field(
-        default=AgentConfig(model="claude-opus-5", effort="medium", min_interval_s=300)
+        default=AgentConfig(model="claude-opus-5", effort="high", min_interval_s=300)
     )
     reviewer: AgentConfig = Field(
-        default=AgentConfig(model="claude-opus-5", effort="high", max_tokens=16000)
+        default=AgentConfig(model="claude-opus-5", effort="xhigh", max_tokens=16000)
     )
 
     daily_cost_limit_usd: float = Field(
-        default=3.0,
+        default=8.0,
         gt=0,
         description="Stop calling agents once the day's estimated API spend exceeds this. "
-        "On a small account, API cost is a real drag on returns.",
+        "With all six on Opus 5 the realistic spend is roughly 4-8 USD/day, which on a "
+        "5,000 USD account is 2.5-5% of equity per month in costs alone — a larger drag "
+        "than most strategies produce in edge. Cadence, not model choice, is the lever: "
+        "the trade manager's polling interval and the news scout's TTL dominate the bill. "
+        "Note the interaction with fail_closed: once this cap trips, the agents stop "
+        "answering and no new trade is approved for the rest of the day.",
     )
     fail_closed: bool = Field(
         default=True,

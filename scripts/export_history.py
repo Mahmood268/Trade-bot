@@ -4,10 +4,15 @@
 MetaTrader 5 is Windows-only, but the backtester should run anywhere. Run this
 once on your Windows PC and the exported file can be backtested on any machine.
 
-    python scripts/export_history.py --months 12
-    python scripts/export_history.py --timeframe M5 --months 6 --out data/xauusd_m5.parquet
+    python scripts/export_history.py --months 12          # M5 + M15 + M1
+    python scripts/export_history.py --timeframe M15 --months 6
 
-M1 bars are exported alongside the trading timeframe by default: the backtester
+By default this exports BOTH scalping timeframes, M5 and M15, plus M1. Exporting
+is the slow step and it only runs on Windows, so pulling both in one pass means
+the M5-vs-M15 question can be settled later from data — see
+scripts/compare_timeframes.py — without coming back to the terminal.
+
+M1 bars are exported alongside the trading timeframes by default: the backtester
 uses them to resolve whether a stop or a target was hit first *within* a bar.
 Without that, backtests silently assume the favourable order and report results
 that live trading will never reproduce.
@@ -55,7 +60,12 @@ def export(client: MT5Client, timeframe: str, months: int, out: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config/config.yaml")
-    parser.add_argument("--timeframe", default=None, help="Defaults to strategy.timeframe")
+    parser.add_argument(
+        "--timeframe",
+        default=None,
+        help="A single timeframe to export. Default: both M5 and M15, so you can "
+        "compare them without re-running the export on Windows.",
+    )
     parser.add_argument("--months", type=int, default=12)
     parser.add_argument("--out", default=None)
     parser.add_argument(
@@ -65,7 +75,10 @@ def main() -> int:
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    timeframe = args.timeframe or cfg.strategy.timeframe
+    # Both scalping timeframes by default. Exporting is the slow, Windows-only
+    # step; getting M5 and M15 in one pass means the M5-vs-M15 question can be
+    # settled from data later without going back to the terminal.
+    timeframes = [args.timeframe] if args.timeframe else ["M5", "M15"]
 
     client = MT5Client(cfg.mt5)
     try:
@@ -73,10 +86,15 @@ def main() -> int:
         symbol = client.discover_symbol()
         print(f"Exporting {symbol} history ({args.months} months)")
 
-        out = Path(args.out) if args.out else Path(f"data/{symbol.lower()}_{timeframe.lower()}.parquet")
-        export(client, timeframe, args.months, out)
+        for timeframe in timeframes:
+            out = (
+                Path(args.out)
+                if args.out
+                else Path(f"data/{symbol.lower()}_{timeframe.lower()}.parquet")
+            )
+            export(client, timeframe, args.months, out)
 
-        if not args.no_m1 and timeframe != "M1":
+        if not args.no_m1 and "M1" not in timeframes:
             print("\nExporting M1 bars for intrabar fill simulation:")
             export(client, "M1", args.months, Path(f"data/{symbol.lower()}_m1.parquet"))
     except MT5Error as exc:

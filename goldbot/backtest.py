@@ -562,14 +562,28 @@ def _unrealised(trades: list[Trade], bar, spread: float, spec: SymbolSpec) -> fl
     return total
 
 
+# Warden reasons are written for a human reading one journal line. The report
+# needs to count them, so each is collapsed to a short label. Order matters:
+# the first matching phrase wins, so more specific phrases come first.
+_VETO_LABELS = (
+    ("trading halted", "halted"),
+    ("spread", "spread too wide"),
+    ("below the broker minimum", "position below min lot"),
+    ("daily cap", "daily trade cap"),
+    ("remaining loss budget", "daily loss budget spent"),
+    ("point minimum", "stop too tight"),
+    ("invalid stops", "stop inside broker limit"),
+    ("limit is", "max open positions"),
+    ("margin", "insufficient margin"),
+    ("may only reduce risk", "agent tried to size up"),
+)
+
+
 def _veto_key(reason: str) -> str:
-    """Collapse a warden reason into a countable category for the report."""
-    for key in (
-        "halted", "spread", "below the broker minimum", "daily cap", "limit is",
-        "remaining loss budget", "minimum —", "invalid stops",
-    ):
-        if key in reason:
-            return key.strip(" —")
+    """Collapse a warden reason into a short, countable label for the report."""
+    for phrase, label in _VETO_LABELS:
+        if phrase in reason:
+            return label
     return reason.split(",")[0][:60]
 
 
