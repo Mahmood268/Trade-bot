@@ -12,6 +12,8 @@ from trade_bot.bot import TelegramBot
 from trade_bot.client import TelegramClient, TelegramError
 from trade_bot.config import ENV_TOKEN, ConfigError, TelegramConfig
 from trade_bot.formatting import Signal
+from trade_bot.health import HealthConfig, HealthMonitor
+from trade_bot.healthserver import HealthServer
 
 
 def _load_dotenv(path: str = ".env") -> None:
@@ -43,6 +45,11 @@ def _build_parser() -> argparse.ArgumentParser:
     group.add_argument("--whoami", action="store_true", help="print the chat id of the next message you send")
     group.add_argument("--send", metavar="TEXT", help="send one message and exit")
     group.add_argument("--demo", action="store_true", help="send a sample signal and report, then exit")
+    group.add_argument(
+        "--healthcheck",
+        action="store_true",
+        help="probe the bot and exit 0 if healthy, 1 if not (for Docker HEALTHCHECK)",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="log every request")
     return parser
 
@@ -71,6 +78,41 @@ def _cmd_whoami() -> int:
                 title = chat.get("title") or chat.get("username") or chat.get("first_name") or ""
                 print(f"\nTELEGRAM_CHAT_ID={chat['id']}   # {chat.get('type')} {title}".rstrip())
                 return 0
+
+
+def _cmd_healthcheck() -> int:
+    """Exit 0 when healthy, 1 when not - the contract Docker expects.
+
+    If the bot is serving a health endpoint, probe that, because it reflects
+    the running process. Otherwise fall back to checking that Telegram is
+    reachable with this token.
+    """
+    health = HealthConfig.from_env()
+
+    if health.http_port:
+        url = f"http://{health.http_host}:{health.http_port}/healthz"
+        try:
+            import urllib.request
+
+            with urllib.request.urlopen(url, timeout=10) as response:
+                body = response.read().decode("utf-8", "replace")
+                print(body.strip())
+                return 0 if response.status == 200 else 1
+        except Exception as exc:  # noqa: BLE001 - any failure means unhealthy
+            print(f"unhealthy: {url}: {type(exc).__name__}: {exc}", file=sys.stderr)
+            return 1
+
+    token = (os.environ.get(ENV_TOKEN) or "").strip()
+    if not token:
+        print(f"unhealthy: {ENV_TOKEN} is not set", file=sys.stderr)
+        return 1
+    try:
+        me = TelegramClient(token, max_attempts=1).get_me()
+    except Exception as exc:  # noqa: BLE001
+        print(f"unhealthy: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    print(f"ok: Telegram reachable as @{me.get('username')}")
+    return 0
 
 
 def _cmd_demo(bot: TelegramBot) -> int:
@@ -114,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.whoami:
             return _cmd_whoami()
 
+        if args.healthcheck:
+            return _cmd_healthcheck()
+
         config = TelegramConfig.from_env()
         bot = TelegramBot(config)
 
@@ -132,7 +177,25 @@ def main(argv: list[str] | None = None) -> int:
         if args.demo:
             return _cmd_demo(bot)
 
-        bot.poll_forever()
+        # Default: listen for commands, with health monitoring alongside.
+        health_config = HealthConfig.from_env()
+        monitor = HealthMonitor(bot, health_config)
+        monitor.attach(bot.router)
+
+        server = None
+        if health_config.http_port:
+            server = HealthServer(
+                monitor, host=health_config.http_host, port=health_config.http_port
+            ).start()
+            print(f"Health endpoint: http://{health_config.http_host}:{server.port}/healthz")
+
+        monitor.start()
+        try:
+            bot.poll_forever()
+        finally:
+            monitor.stop()
+            if server is not None:
+                server.stop()
         return 0
 
     except ConfigError as exc:

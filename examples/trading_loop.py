@@ -15,10 +15,11 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from trade_bot import Signal, TelegramBot, TelegramConfig
+from trade_bot import HealthConfig, HealthMonitor, Signal, TelegramBot, TelegramConfig
 from trade_bot.commands import CommandContext, CommandRouter
 from trade_bot.formatting import format_signal
 from trade_bot.handlers import TradingBridge, register_default_commands
+from trade_bot.healthserver import HealthServer
 
 
 class MyStrategy(TradingBridge):
@@ -75,12 +76,34 @@ def main() -> None:
     def _equity(context: CommandContext) -> str:
         return f"Equity: <b>{strategy.equity:,.2f} USDT</b>"
 
+    # Health monitoring. The watchdog alerts if this loop stops calling beat();
+    # /health reports on demand. A heartbeat every 6h is opt-in noise, so it is
+    # set here rather than defaulted.
+    health_config = HealthConfig(watchdog_timeout=60, heartbeat_interval=21_600)
+    monitor = HealthMonitor(bot, health_config)
+    monitor.attach(router)
+
+    # Your own checks join the same report as the built-in Telegram one.
+    monitor.register("exchange", lambda: (True, "paper trading"))
+    monitor.register(
+        "strategy",
+        lambda: (strategy.running.is_set(), "running" if strategy.running.is_set() else "paused"),
+    )
+
+    # Optional: expose GET /healthz for Docker or an uptime monitor.
+    server = HealthServer(monitor, port=8080).start() if health_config.http_port else None
+
     # Listen for your messages on a background thread; trade on this one.
     bot.start_polling()
-    bot.send_text("\U0001F680 <b>Trade-bot started</b> - send /help for commands.")
+    monitor.start()
 
     try:
         while True:
+            # Tell the watchdog this loop is still turning. If these stop -
+            # a hang, a crashed thread, a wedged exchange call - you get a
+            # "Trading loop stalled" alert within watchdog_timeout seconds.
+            monitor.beat()
+
             if strategy.running.is_set() and random.random() < 0.3:
                 price = round(random.uniform(60_000, 68_000), 2)
                 signal = Signal(
@@ -103,6 +126,9 @@ def main() -> None:
         pass
     finally:
         bot.notify_safely("\U0001F6D1 <b>Trade-bot stopped</b>")
+        monitor.stop()
+        if server is not None:
+            server.stop()
         bot.stop()
 
 

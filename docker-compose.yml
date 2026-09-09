@@ -1,0 +1,19 @@
+services:
+  trade-bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HEALTH_HTTP_HOST: 0.0.0.0
+      HEALTH_HTTP_PORT: "8080"
+      HEALTH_WATCHDOG_TIMEOUT: "300"
+      TELEGRAM_OFFSET_FILE: /state/telegram-offset
+    volumes:
+      - trade-bot-state:/state
+    ports:
+      # Loopback only. Drop the 127.0.0.1 prefix at your own risk - the body
+      # describes your bot's internals.
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  trade-bot-state:
