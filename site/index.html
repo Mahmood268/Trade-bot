@@ -88,7 +88,13 @@
       <div class="kicker-row"><span class="kicker">Globe</span></div>
       <p class="serif italic sub">Explore the world. Tap any country to read its stories.</p>
       <div id="globe-modes" class="mode-chips" role="tablist"></div>
-      <div class="globe-wrap"><svg id="globe" class="globe" role="img" aria-label="Globe of today's stories"></svg></div>
+      <div class="globe-wrap"><svg id="globe" class="globe" role="img" aria-label="Globe of today's stories"></svg>
+        <div class="zoom-btns">
+          <button data-zoom="in" aria-label="Zoom in">+</button>
+          <button data-zoom="out" aria-label="Zoom out">−</button>
+          <button data-zoom="reset" aria-label="Reset zoom" title="Reset">⟲</button>
+        </div>
+      </div>
       <div id="globe-countries" class="country-chips"></div>
       <p id="globe-caption" class="caption muted"></p>
     </section>

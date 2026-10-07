@@ -20,7 +20,7 @@ Reuters, AP and Yahoo Finance (stocks and AI) into one site, with:
   card, section page, country on the globe or chart) and can search the web. Spoken questions
   get spoken answers.
 
-It updates itself every hour via GitHub Actions and is hosted free on GitHub Pages.
+It updates itself every 5 minutes via GitHub Actions (GitHub sometimes runs scheduled jobs a few minutes late), and an open page picks up new stories within a minute, and is hosted free on GitHub Pages.
 
 ## One-time setup
 
@@ -76,7 +76,7 @@ python tests/test_fetch_news.py         # offline tests
 ## How it works
 
 ```
-GitHub Action (hourly)
+GitHub Action (every 5 minutes)
   └─ scripts/fetch_news.py → fetch RSS feeds + Yahoo prices, tag topics, merge duplicates, rank
   └─ scripts/briefing.py   → Claude writes the briefing (skipped if <11h old)
   └─ deploy site/ to GitHub Pages

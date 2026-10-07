@@ -458,9 +458,12 @@
     try {
       const res = await fetch(`data.json?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      state.data = await res.json();
+      const data = await res.json();
+      // Nothing new since last check: leave the screen alone (keeps your scroll place).
+      if (state.loaded && data.generated_at === state.data?.generated_at) { renderDates(); return; }
+      state.data = data;
     } catch (err) {
-      $("#updated").textContent = `Could not load news (${err.message}).`;
+      if (!state.loaded) $("#updated").textContent = `Could not load news (${err.message}).`;
       return;
     }
     window.NEWS_DATA = state.data;
@@ -606,6 +609,7 @@
   route();
   load();
   setInterval(renderDates, 60 * 1000);
-  // Pick up the hourly rebuild without a manual reload.
-  setInterval(load, 15 * 60 * 1000);
+  // The site rebuilds every few minutes; check for new stories each minute while open.
+  setInterval(() => { if (!document.hidden) load(); }, 60 * 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
 })();

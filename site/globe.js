@@ -99,9 +99,17 @@
   }
 
   const g = {
-    countries: [], mode: "explore", rotate: [-35, -25], counts: new Map(), stories: new Map(),
+    countries: [], mode: "explore", rotate: [-35, -25], zoom: 1, counts: new Map(), stories: new Map(),
     dragging: false, lastInteract: 0, raf: 0, ready: false, visible: false,
   };
+
+  // All of today's stories (not just the 15 per section) when the data has them.
+  function worldStories() {
+    const world = window.NEWS_DATA?.world;
+    if (!world?.length) return window.NEWS_APP.allStories();
+    return world.map((item) => ({ item, key: item.topics?.[0] || "all" }));
+  }
+  const mentions = (c, item) => c.res.some((re) => re.test(`${item.title} ${item.summary || ""}`));
 
   let initPromise = null;
   function init() {
@@ -130,7 +138,7 @@
   function compute() {
     if (!g.ready || !window.NEWS_DATA) return;
     const mode = MODES.find((m) => m.key === g.mode);
-    const stories = window.NEWS_APP.allStories();
+    const stories = worldStories();
     g.counts = new Map();
     g.stories = new Map();
     for (const c of g.countries) {
@@ -186,7 +194,8 @@
     svg.setAttribute("width", w);
     svg.setAttribute("height", w);
     const r = w / 2 - 14;
-    projection.translate([w / 2, w / 2]).scale(r);
+    g.radius = r;
+    projection.translate([w / 2, w / 2]).scale(r * g.zoom).clipExtent([[0, 0], [w, w]]);
     for (const sel of [".halo", ".shine"]) {
       const c = svg.querySelector(sel);
       c.setAttribute("cx", w / 2); c.setAttribute("cy", w / 2);
@@ -214,15 +223,16 @@
         c.node.style.fill = c.node.style.fillOpacity = c.node.style.stroke = "";
       }
     }
-    // Labels for the busiest countries on the visible side.
+    // Labels for the busiest countries on the visible side; more as you zoom in.
     const center = [-g.rotate[0], -g.rotate[1]];
-    const top = [...g.counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name]) => name);
+    const top = [...g.counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, Math.round(10 * g.zoom)).map(([name]) => name);
     labelLayer.innerHTML = "";
     const placed = [];
     for (const name of top) {
       const c = g.countries.find((x) => x.name === name);
       if (d3.geoDistance(c.centroid, center) > 1.35) continue;
       const [x, y] = projection(c.centroid);
+      if (x < 0 || y < 0 || x > size || y > size) continue;
       // Skip labels that would sit on top of a busier country's label.
       if (placed.some(([px, py]) => Math.abs(px - x) < 70 && Math.abs(py - y) < 16)) continue;
       placed.push([x, y]);
@@ -233,39 +243,64 @@
 
   // ---------- interaction ----------
 
+  function setZoom(z) {
+    g.zoom = Math.max(1, Math.min(8, z));
+    projection.scale(g.radius * g.zoom);
+    g.lastInteract = Date.now();
+    draw();
+  }
+
+  // One finger turns the globe (about as fast as the finger moves), two fingers pinch to zoom,
+  // a mouse wheel zooms too. A tap opens that country.
   function bindDrag() {
-    let start = null;
+    const pointers = new Map();
+    let start = null, pinch = null;
+    const spread = () => { const [a, b] = [...pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
     svg.addEventListener("pointerdown", (e) => {
-      start = { x: e.clientX, y: e.clientY, rotate: [...g.rotate], moved: false };
-      svg.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try { svg.setPointerCapture(e.pointerId); } catch {}
       g.lastInteract = Date.now();
+      if (pointers.size === 2) { pinch = { d: spread(), zoom: g.zoom }; start = null; return; }
+      start = { x: e.clientX, y: e.clientY, rotate: [...g.rotate], moved: false };
     });
     svg.addEventListener("pointermove", (e) => {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      g.lastInteract = Date.now();
+      if (pinch && pointers.size === 2) { setZoom(pinch.zoom * spread() / pinch.d); return; }
       if (!start) return;
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
-      if (Math.abs(dx) + Math.abs(dy) > 4) start.moved = true;
-      const k = 75 / projection.scale();
-      g.rotate = [start.rotate[0] + dx * k * 2.3, Math.max(-70, Math.min(70, start.rotate[1] - dy * k * 2.3))];
-      g.lastInteract = Date.now();
+      if (Math.abs(dx) + Math.abs(dy) > 6) start.moved = true;
+      if (!start.moved) return;
+      // Degrees per pixel so the surface follows the finger instead of racing ahead.
+      const k = (180 / Math.PI) / projection.scale() * 0.9;
+      g.rotate = [start.rotate[0] + dx * k, Math.max(-80, Math.min(80, start.rotate[1] - dy * k))];
       draw();
     });
-    svg.addEventListener("pointerup", (e) => {
-      if (start && !start.moved) {
-        const target = document.elementFromPoint(e.clientX, e.clientY);
-        const name = target?.dataset?.name;
+    const end = (e) => {
+      const wasTap = start && !start.moved && !pinch;
+      pointers.delete(e.pointerId);
+      if (wasTap && e.type === "pointerup") {
+        const name = document.elementFromPoint(e.clientX, e.clientY)?.dataset?.name;
         if (name) openCountry(name);
       }
-      start = null;
+      if (pointers.size < 2) pinch = null;
+      // After a pinch, the finger still down carries on turning from here.
+      const [rest] = pointers.values();
+      start = rest ? { x: rest.x, y: rest.y, rotate: [...g.rotate], moved: true } : null;
       g.lastInteract = Date.now();
-    });
-    svg.addEventListener("pointercancel", () => { start = null; });
+    };
+    svg.addEventListener("pointerup", end);
+    svg.addEventListener("pointercancel", end);
+    svg.addEventListener("wheel", (e) => { e.preventDefault(); setZoom(g.zoom * Math.exp(-e.deltaY / 400)); }, { passive: false });
+    svg.addEventListener("dblclick", () => setZoom(g.zoom * 2));
   }
 
   // Gentle spin while nobody is touching the globe.
   function spin() {
     if (!g.visible) { g.raf = 0; return; }
     if (Date.now() - g.lastInteract > 4000 && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      g.rotate = [g.rotate[0] + 0.08, g.rotate[1]];
+      g.rotate = [g.rotate[0] + 0.08 / g.zoom, g.rotate[1]];
       draw();
     }
     g.raf = requestAnimationFrame(spin);
@@ -311,8 +346,7 @@
     if (!c) return;
     rotateTo(c.centroid);
     // Show every story for the country, not just the current mode's.
-    const all = window.NEWS_APP.allStories().filter(({ item }) =>
-      c.res.some((re) => re.test(`${item.title} ${item.summary || ""}`)));
+    const all = worldStories().filter(({ item }) => mentions(c, item));
     g.open = { country: c.display, stories: all.map(({ item }) => `${item.title} (${item.source})`) };
     $("#sheet-title").textContent = c.display;
     $("#sheet-body").innerHTML = `<p class="muted">${all.length ? `${all.length} ${all.length === 1 ? "story" : "stories"} today` : "No stories mention it today."}</p>
@@ -321,6 +355,7 @@
           <span class="story-meta"><span class="dot"></span>${esc(look(key).short)} · ${esc(item.source)} · ${esc(timeAgo(item.published))}</span>
           <span class="serif">${esc(item.title)}</span>
         </a>`).join("")}</div>
+      <a class="more-news" href="https://news.google.com/search?q=${encodeURIComponent(c.display)}" target="_blank" rel="noopener noreferrer">More ${esc(c.display)} news on Google News ›</a>
       <button class="primary wide chat-only" data-country-brief="${esc(c.display)}">✦ Ask Claude about ${esc(c.display)}</button>`;
     $("#sheet").hidden = false;
   }
@@ -337,6 +372,8 @@
   };
 
   document.addEventListener("click", (e) => {
+    const zb = e.target.closest("[data-zoom]");
+    if (zb) { setZoom(zb.dataset.zoom === "in" ? g.zoom * 1.6 : zb.dataset.zoom === "out" ? g.zoom / 1.6 : 1); return; }
     const mode = e.target.closest("[data-mode]");
     if (mode) { g.mode = mode.dataset.mode; renderModes(); compute(); return; }
     const chip = e.target.closest("[data-country]");

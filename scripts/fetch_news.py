@@ -215,6 +215,13 @@ def dedupe(items: list[dict], threshold: float = 0.6) -> list[dict]:
     return kept
 
 
+def world_stories(items: list[dict], limit: int) -> list[dict]:
+    """Newest stories in a slim form (no images) for the globe's country pages."""
+    newest = sorted(items, key=lambda i: i["published"] or "", reverse=True)[:limit]
+    return [{"title": i["title"], "link": i["link"], "source": i["source"], "published": i["published"],
+             "summary": (i["summary"] or "")[:240], "topics": i["topics"]} for i in newest]
+
+
 def score(item: dict, now: datetime) -> float:
     age_h = 24.0
     if item["published"]:
@@ -361,12 +368,13 @@ def build(config: dict, previous: dict, client: httpx.Client,
             if age_h > max_age_h or age_h < -2:
                 continue
         item["topics"] = assign_topics(item, patterns)
-        if item["topics"]:
-            fresh.append(item)
+        fresh.append(item)
 
-    merged = dedupe(fresh)
-    for item in merged:
+    # Every story, tagged or not, so the globe can show any country's news.
+    everything = dedupe(fresh)
+    for item in everything:
         item.pop("feed_topics", None)
+    merged = [i for i in everything if i["topics"]]
 
     topics_out = []
     for key, spec in config["topics"].items():
@@ -381,6 +389,7 @@ def build(config: dict, previous: dict, client: httpx.Client,
     return {
         "generated_at": now.isoformat(),
         "topics": topics_out,
+        "world": world_stories(everything, settings.get("world_max", 300)),
         "markets": fetch_markets(quote_sources or [yfinance_quote, lambda s: chart_quote(client, s)],
                                  config.get("markets", []), previous,
                                  candle_sources or [yfinance_candles, lambda s: chart_candles(client, s)]),
