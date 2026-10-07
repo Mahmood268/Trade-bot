@@ -173,6 +173,11 @@
     <a href="#settings" data-nav="settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.7h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg><span>Settings</span></a>
   </nav>
 
+  <!-- Ask Claude from any screen -->
+  <button id="claude-fab" class="claude-fab" data-open-chat title="Ask Claude about this screen" aria-label="Ask Claude about this screen">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c.5 4.6 2.4 6.5 7 7-4.6.5-6.5 2.4-7 7-.5-4.6-2.4-6.5-7-7 4.6-.5 6.5-2.4 7-7z"/><path d="M19 15.5c.2 1.8.9 2.5 2.7 2.7-1.8.2-2.5.9-2.7 2.7-.2-1.8-.9-2.5-2.7-2.7 1.8-.2 2.5-.9 2.7-2.7z"/></svg>
+  </button>
+
   <!-- Country stories from the globe -->
   <div id="sheet" class="sheet" hidden>
     <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
@@ -187,8 +192,14 @@
 
   <aside id="chat" class="chat" hidden aria-label="Ask Claude">
     <div class="chat-head">
-      <strong class="serif">Ask Claude</strong>
+      <div class="chat-title">
+        <strong class="serif">Ask Claude</strong>
+        <span id="chat-seeing" class="seeing"></span>
+      </div>
       <div class="chat-head-actions">
+        <button id="chat-speak" class="square-btn" title="Read answers aloud" aria-label="Read answers aloud" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="wave-on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/><path class="wave-off" d="m16 9 5 6M21 9l-5 6"/></svg>
+        </button>
         <button id="chat-new" class="text-btn" title="Start a new conversation">New chat</button>
         <button id="chat-settings-toggle" class="square-btn" title="Settings" aria-label="Settings">⚙</button>
         <button id="chat-close" class="square-btn" title="Close" aria-label="Close">✕</button>
@@ -212,8 +223,9 @@
 
     <div id="chat-log" class="chat-log" aria-live="polite">
       <div class="chat-empty">
-        <p>Ask about today's news, or a "what if". Claude sees today's headlines and market prices.</p>
+        <p>Ask about today's news, or a "what if". Claude sees today's headlines, market prices and whatever you have open on screen. Tap the mic to talk instead of typing.</p>
         <div class="chips">
+          <button class="chip">Explain what I'm looking at and what could happen next.</button>
           <button class="chip">What if Iran closes the Strait of Hormuz — what happens to oil, gold and stocks?</button>
           <button class="chip">What could move gold this week?</button>
           <button class="chip">Bull vs bear case for the S&amp;P 500 over the next month</button>
@@ -223,7 +235,10 @@
     </div>
 
     <form id="chat-form" class="chat-form">
-      <textarea id="chat-input" rows="2" placeholder="Ask anything… (Enter to send, Shift+Enter for a new line)"></textarea>
+      <button type="button" id="chat-mic" class="mic-btn" title="Talk instead of typing" aria-label="Talk instead of typing" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <textarea id="chat-input" rows="2" placeholder="Ask about what's on screen, or anything…"></textarea>
       <button type="submit" id="chat-send" class="primary">Send</button>
     </form>
   </aside>

@@ -308,6 +308,7 @@
     // Show every story for the country, not just the current mode's.
     const all = window.NEWS_APP.allStories().filter(({ item }) =>
       c.res.some((re) => re.test(`${item.title} ${item.summary || ""}`)));
+    g.open = { country: c.display, stories: all.map(({ item }) => `${item.title} (${item.source})`) };
     $("#sheet-title").textContent = c.display;
     $("#sheet-body").innerHTML = `<p class="muted">${all.length ? `${all.length} ${all.length === 1 ? "story" : "stories"} today` : "No stories mention it today."}</p>
       <div class="sheet-list">${all.map(({ item, key }) => `
@@ -319,7 +320,16 @@
     $("#sheet").hidden = false;
   }
 
-  function closeSheet() { $("#sheet").hidden = true; }
+  function closeSheet() { $("#sheet").hidden = true; g.open = null; }
+
+  // What the Globe screen shows, for Ask Claude.
+  window.GLOBE_VIEW = () => {
+    const mode = MODES.find((m) => m.key === g.mode);
+    const byName = new Map(g.countries.map((c) => [c.name, c.display]));
+    const top = [...g.counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)
+      .map(([name, n]) => `${byName.get(name)} (${n})`);
+    return { mode: mode.label, countries: top, open: g.open };
+  };
 
   document.addEventListener("click", (e) => {
     const mode = e.target.closest("[data-mode]");

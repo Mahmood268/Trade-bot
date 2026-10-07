@@ -547,7 +547,52 @@
   window.addEventListener("chat-settings-saved", renderSettings);
   window.addEventListener("hashchange", route);
 
-  window.NEWS_APP = { look, icon, labelOf, timeAgo, esc, askAbout, allStories };
+  // ---------- what's on screen, for Ask Claude ----------
+
+  const storyLine = (item) => `- ${item.title} (${outlets(item).join(", ")}, ${timeAgo(item.published)})${
+    item.summary ? `: ${item.summary}` : ""}`;
+
+  // A short label and a plain-text description of the screen the reader has open.
+  function screenContext() {
+    if (!state.data) return { label: "Loading", text: "The page is still loading." };
+    const [view, arg] = (location.hash.slice(1) || "home").split("/");
+    if (view === "signal") {
+      const box = $("#front").getBoundingClientRect();
+      const visible = front.filter((_, i) => {
+        const r = $$(".front-card")[i]?.getBoundingClientRect();
+        return r && r.right > box.left + 20 && r.left < box.right - 20;
+      });
+      const open = $$(".scan-item[open]").map((d) => topicOf(d.dataset.scan).label);
+      const lines = ["Signal screen (front page and daily scan)."];
+      if (visible.length) lines.push("Front Page story card(s) on screen:", ...visible.map((f) => `${storyLine(f.item)} [${labelOf(f.key)}]`));
+      if (open.length) lines.push(`Daily Scan sections expanded: ${open.join(", ")}.`);
+      const label = visible[0] ? `Signal · “${visible[0].item.title}”` : "Signal";
+      return { label, text: lines.join("\n") };
+    }
+    if (view === "globe") {
+      const gv = window.GLOBE_VIEW?.();
+      if (!gv) return { label: "Globe", text: "Globe screen." };
+      const lines = [`Globe screen, "${gv.mode}" mode. Countries lit up (stories): ${gv.countries.join(", ") || "none"}.`];
+      if (gv.open) lines.push(`Open country: ${gv.open.country}. Its stories:`, ...gv.open.stories.map((x) => `- ${x}`));
+      return { label: gv.open ? `Globe · ${gv.open.country}` : `Globe · ${gv.mode}`, text: lines.join("\n") };
+    }
+    if (view === "topic") {
+      const key = arg && (arg === "all" || topicOf(arg)) ? arg : "all";
+      const list = key === "all" ? allStories() : topicOf(key).items.map((i) => ({ item: i, key }));
+      const q = state.query.toLowerCase();
+      const shown = q ? list.filter(({ item }) => `${item.title} ${item.summary} ${item.source}`.toLowerCase().includes(q)) : list;
+      const b = key === "all" ? null : briefingFor(key);
+      const lines = [`${labelOf(key)} page${q ? `, searching for "${state.query}"` : ""}.`];
+      if (b?.bullets?.length) lines.push("The short version:", ...b.bullets.map((x) => `- ${x}`));
+      lines.push("Stories listed:", ...shown.slice(0, 20).map(({ item }) => storyLine(item)));
+      return { label: labelOf(key), text: lines.join("\n") };
+    }
+    if (view === "settings") return { label: "Settings", text: "Settings screen." };
+    return { label: "Home", text: `Home screen: "Your world today" with a tile per section (${
+      state.data.topics.map((t) => `${t.label}: ${t.items.length} stories`).join(", ")}).` };
+  }
+
+  window.NEWS_APP = { look, icon, labelOf, timeAgo, esc, askAbout, allStories, screenContext };
 
   route();
   load();

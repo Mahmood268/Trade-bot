@@ -117,7 +117,7 @@ main {
 .primary:hover { background: var(--gold-2); }
 .primary:disabled { opacity: .4; cursor: default; }
 .primary.wide { width: 100%; margin-top: 16px; padding: 13px; }
-.text-btn { border: 0; background: none; color: var(--muted); padding: 4px 8px; font-size: 14px; }
+.text-btn { border: 0; background: none; color: var(--muted); padding: 4px 8px; font-size: 14px; white-space: nowrap; }
 .text-btn:hover { color: var(--text); }
 .ico { width: 22px; height: 22px; flex-shrink: 0; }
 .gold { color: var(--gold); }
@@ -474,6 +474,23 @@ div.row { cursor: default; }
 .tabbar svg { width: 26px; height: 26px; }
 .tabbar a.active { background: var(--nav-active); color: var(--gold); }
 
+/* ---------- Ask Claude button ---------- */
+.claude-fab {
+  position: fixed; z-index: 35; right: 20px;
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  width: 58px; height: 58px; border-radius: 50%; border: 0; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, var(--gold-2), var(--gold) 65%);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .35), 0 0 22px color-mix(in srgb, var(--gold) 35%, transparent);
+  transition: transform .15s ease;
+}
+.claude-fab:hover { transform: scale(1.06); }
+.claude-fab svg { width: 28px; height: 28px; fill: #17140a; }
+body:has(.chat:not([hidden])) .claude-fab { display: none; }
+/* On narrow screens the tab bar fills the width, so the button sits just above it. */
+@media (max-width: 760px) {
+  .claude-fab { right: 16px; bottom: calc(100px + env(safe-area-inset-bottom)); width: 54px; height: 54px; }
+}
+
 /* ---------- Chat ---------- */
 .chat {
   position: fixed; z-index: 50; right: 20px; bottom: 20px; top: 20px;
@@ -489,6 +506,22 @@ div.row { cursor: default; }
   border-bottom: 1px solid var(--line);
 }
 .chat-head strong { font-size: 22px; font-weight: 600; }
+.chat-title { display: flex; flex-direction: column; min-width: 0; }
+.seeing {
+  font-size: 12.5px; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px;
+}
+.seeing::before { content: "◉ "; }
+.seeing:empty { display: none; }
+#chat-speak .wave-on, #chat-speak[aria-pressed="false"] .wave-off { display: inline; }
+#chat-speak .wave-off, #chat-speak[aria-pressed="false"] .wave-on { display: none; }
+#chat-speak[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); }
+.msg-screen { align-self: flex-end; margin-top: -8px; font-size: 12px; color: var(--muted); max-width: 92%; text-align: right; }
+.mic-btn {
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+}
+.mic-btn svg { width: 22px; height: 22px; }
+.mic-btn.listening { background: var(--down); border-color: var(--down); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
 .chat-head-actions { display: flex; gap: 6px; align-items: center; }
 .chat-head .square-btn { width: 36px; height: 36px; font-size: 15px; }
 .chat-settings { display: grid; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); background: var(--card); }
