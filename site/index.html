@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Brief</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+  </script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Daily Brief</h1>
+      <span id="updated" class="muted">Loading…</span>
+    </div>
+    <div class="top-actions">
+      <input id="search" type="search" placeholder="Filter headlines…" aria-label="Filter headlines">
+      <button id="theme-toggle" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button>
+    </div>
+  </header>
+
+  <section id="markets" class="markets" aria-label="Markets"></section>
+
+  <main>
+    <section id="briefing" class="card briefing" hidden></section>
+
+    <nav id="tabs" class="tabs" role="tablist"></nav>
+    <section id="content"></section>
+
+    <details class="feeds-status">
+      <summary>Sources status</summary>
+      <ul id="feeds"></ul>
+    </details>
+  </main>
+
+  <button id="chat-open" class="chat-fab" aria-label="Ask Claude">💬 Ask Claude</button>
+
+  <aside id="chat" class="chat" hidden aria-label="Ask Claude">
+    <div class="chat-head">
+      <strong>Ask Claude</strong>
+      <div class="chat-head-actions">
+        <button id="chat-new" class="text-btn" title="Start a new conversation">New chat</button>
+        <button id="chat-settings-toggle" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+        <button id="chat-close" class="icon-btn" title="Close" aria-label="Close">✕</button>
+      </div>
+    </div>
+
+    <form id="chat-settings" class="chat-settings" hidden>
+      <label>Anthropic API key
+        <input id="api-key" type="password" autocomplete="off" placeholder="sk-ant-…">
+      </label>
+      <p class="muted small">Stored only in this browser (localStorage). Requests go straight from your browser to Anthropic.</p>
+      <label>Model
+        <select id="model">
+          <option value="claude-opus-5-5">Claude Opus 5.5 — best reasoning</option>
+          <option value="claude-sonnet-5-5">Claude Sonnet 5.5 — faster, cheaper</option>
+        </select>
+      </label>
+      <label class="check"><input id="web-search" type="checkbox" checked> Let Claude search the web for live info</label>
+      <button type="submit" class="primary">Save</button>
+    </form>
+
+    <div id="chat-log" class="chat-log" aria-live="polite">
+      <div class="chat-empty">
+        <p>Ask about today's news, or a "what if". Claude sees today's headlines and market prices.</p>
+        <div class="chips">
+          <button class="chip">What if Iran closes the Strait of Hormuz — what happens to oil, gold and stocks?</button>
+          <button class="chip">What could move gold this week?</button>
+          <button class="chip">Bull vs bear case for the S&amp;P 500 over the next month</button>
+          <button class="chip">What are the most important AI developments today and why do they matter?</button>
+        </div>
+      </div>
+    </div>
+
+    <form id="chat-form" class="chat-form">
+      <textarea id="chat-input" rows="2" placeholder="Ask anything… (Enter to send, Shift+Enter for a new line)"></textarea>
+      <button type="submit" id="chat-send" class="primary">Send</button>
+    </form>
+  </aside>
+
+  <script src="app.js"></script>
+  <script type="module" src="chat.js"></script>
+</body>
+</html>

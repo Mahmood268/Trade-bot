@@ -1,0 +1,161 @@
+# News sources and topic rules for the dashboard.
+#
+# feeds:  each feed has a display name, an RSS/Atom url, and optionally
+#         `topics` — topics every item from that feed belongs to, in addition
+#         to whatever the keyword rules match.
+# topics: keyword regexes (case-insensitive) matched against title + summary.
+#
+# To add a source: append a feed entry. A broken feed is logged and skipped.
+
+settings:
+  max_age_hours: 36
+  per_topic: 15
+
+topics:
+  trump:
+    label: "Trump & US Politics"
+    keywords:
+      - '\btrump\b'
+      - '\bwhite house\b'
+      - '\bcongress\b'
+      - '\bsenate\b'
+      - '\bhouse speaker\b'
+      - '\bvance\b'
+      - '\brepublicans?\b'
+      - '\bdemocrats?\b'
+      - '\bsupreme court\b'
+      - '\btariffs?\b'
+      - '\bmaga\b'
+  middle_east:
+    label: "Middle East"
+    keywords:
+      - '\biran(ian)?\b'
+      - '\bisrael(i)?\b'
+      - '\bgaza\b'
+      - '\bwest bank\b'
+      - '\bhamas\b'
+      - '\bhezbollah\b'
+      - '\bhouthis?\b'
+      - '\blebanon\b'
+      - '\bsyria(n)?\b'
+      - '\biraq(i)?\b'
+      - '\byemen\b'
+      - '\bsaudi\b'
+      - '\bqatar\b'
+      - '\buae\b|\bemirates\b|\bdubai\b|\babu dhabi\b'
+      - '\bjordan\b'
+      - '\begypt\b'
+      - '\btehran\b'
+      - '\bnetanyahu\b'
+      - '\bkhamenei\b'
+      - '\bmiddle east\b'
+      - '\bpalestin'
+      - '\bred sea\b'
+      - '\bgulf states?\b'
+  markets:
+    label: "Stock Market"
+    keywords:
+      - '\bstocks?\b'
+      - '\bwall street\b'
+      - '\bs&p\b|\bs&amp;p\b|\bs and p 500\b'
+      - '\bnasdaq\b'
+      - '\bdow\b'
+      - '\bshares\b'
+      - '\bequities\b'
+      - '\bearnings\b'
+      - '\bfed\b|\bfederal reserve\b'
+      - '\binterest rates?\b'
+      - '\binflation\b'
+      - '\bbond yields?\b|\btreasur(y|ies)\b'
+      - '\bftse\b|\bnikkei\b|\bdax\b'
+      - '\bipo\b'
+      - '\brecession\b'
+  gold:
+    label: "Gold & Commodities"
+    keywords:
+      - '\bgold\b'
+      - '\bsilver\b'
+      - '\bbullion\b'
+      - '\bprecious metals?\b'
+      - '\bcrude\b'
+      - '\boil prices?\b'
+      - '\bbrent\b'
+      - '\bopec\+?\b'
+      - '\bnatural gas\b'
+      - '\bcopper\b'
+      - '\bcommodit(y|ies)\b'
+  ai:
+    label: "AI"
+    keywords:
+      - '\bartificial intelligence\b'
+      - '(?-i:\bA\.?I\b)'   # uppercase only, so "Ai Weiwei" etc. don't match
+      - '\bopenai\b'
+      - '\banthropic\b'
+      - '\bclaude\b'
+      - '\bchatgpt\b'
+      - '\bgpt-?\d'
+      - '\bgemini\b'
+      - '\bdeepmind\b'
+      - '\bnvidia\b'
+      - '\bllms?\b'
+      - '\blarge language models?\b'
+      - '\bchatbots?\b'
+      - '\bmachine learning\b'
+      - '\bxai\b|\bgrok\b'
+      - '\bmistral\b|\bdeepseek\b'
+
+feeds:
+  # --- Major world news ---
+  - {name: "BBC", url: "https://feeds.bbci.co.uk/news/world/rss.xml"}
+  - {name: "BBC", url: "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"}
+  - {name: "BBC", url: "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml"}
+  - {name: "BBC", url: "https://feeds.bbci.co.uk/news/business/rss.xml"}
+  - {name: "BBC", url: "https://feeds.bbci.co.uk/news/technology/rss.xml"}
+  - {name: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml"}
+  - {name: "The Guardian", url: "https://www.theguardian.com/world/rss"}
+  - {name: "The Guardian", url: "https://www.theguardian.com/us-news/rss"}
+  - {name: "The Guardian", url: "https://www.theguardian.com/business/rss"}
+  - {name: "CNN", url: "http://rss.cnn.com/rss/edition_world.rss"}
+  - {name: "CNN", url: "http://rss.cnn.com/rss/cnn_allpolitics.rss"}
+  - {name: "NPR", url: "https://feeds.npr.org/1001/rss.xml"}
+  - {name: "NPR", url: "https://feeds.npr.org/1014/rss.xml"}
+  - {name: "Sky News", url: "https://feeds.skynews.com/feeds/rss/world.xml"}
+  - {name: "France 24", url: "https://www.france24.com/en/rss"}
+  - {name: "DW", url: "https://rss.dw.com/rdf/rss-en-all"}
+  # Reuters and AP have no public RSS any more; pull them via Google News.
+  - {name: "Reuters", url: "https://news.google.com/rss/search?q=site:reuters.com+when:1d&hl=en-US&gl=US&ceid=US:en"}
+  - {name: "AP", url: "https://news.google.com/rss/search?q=site:apnews.com+when:1d&hl=en-US&gl=US&ceid=US:en"}
+
+  # --- Financial news ---
+  - {name: "CNBC", url: "https://www.cnbc.com/id/100003114/device/rss/rss.html"}
+  - {name: "CNBC", url: "https://www.cnbc.com/id/20910258/device/rss/rss.html", topics: [markets]}
+  - {name: "MarketWatch", url: "https://feeds.content.dowjones.io/public/rss/mw_topstories"}
+  - {name: "MarketWatch", url: "https://feeds.content.dowjones.io/public/rss/mw_marketpulse", topics: [markets]}
+  - {name: "Yahoo Finance", url: "https://finance.yahoo.com/news/rssindex", topics: [markets]}
+  - {name: "Investing.com", url: "https://www.investing.com/rss/news_25.rss", topics: [markets]}
+  - {name: "Investing.com", url: "https://www.investing.com/rss/news_11.rss", topics: [gold]}
+  - {name: "Kitco", url: "https://news.google.com/rss/search?q=site:kitco.com+when:2d&hl=en-US&gl=US&ceid=US:en", topics: [gold]}
+
+  # --- Middle East outlets ---
+  - {name: "Middle East Eye", url: "https://www.middleeasteye.net/rss", topics: [middle_east]}
+  - {name: "Times of Israel", url: "https://www.timesofisrael.com/feed/", topics: [middle_east]}
+  - {name: "Arab News", url: "https://www.arabnews.com/rss.xml", topics: [middle_east]}
+  - {name: "Iran International", url: "https://www.iranintl.com/en/feed", topics: [middle_east]}
+
+  # --- AI / tech ---
+  - {name: "TechCrunch", url: "https://techcrunch.com/category/artificial-intelligence/feed/", topics: [ai]}
+  - {name: "The Verge", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", topics: [ai]}
+  - {name: "VentureBeat", url: "https://venturebeat.com/category/ai/feed/", topics: [ai]}
+  - {name: "MIT Tech Review", url: "https://www.technologyreview.com/topic/artificial-intelligence/feed", topics: [ai]}
+  - {name: "Anthropic", url: "https://news.google.com/rss/search?q=site:anthropic.com/news+when:7d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
+  - {name: "OpenAI", url: "https://openai.com/news/rss.xml", topics: [ai]}
+
+# Market tickers (Yahoo Finance symbols).
+markets:
+  - {symbol: "^GSPC", label: "S&P 500"}
+  - {symbol: "^IXIC", label: "Nasdaq"}
+  - {symbol: "^DJI", label: "Dow"}
+  - {symbol: "GC=F", label: "Gold"}
+  - {symbol: "SI=F", label: "Silver"}
+  - {symbol: "CL=F", label: "Oil (WTI)"}
+  - {symbol: "BTC-USD", label: "Bitcoin"}

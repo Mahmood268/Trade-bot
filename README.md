@@ -1,1 +1,66 @@
-# Trade-bot
+# Daily Brief
+
+A personal news dashboard that gathers the top headlines from BBC, Al Jazeera,
+Reuters, AP, The Guardian, CNN, CNBC, MarketWatch, Yahoo Finance, Kitco,
+Middle East outlets and AI news sites into one page, with:
+
+- **Five sections:** Trump & US Politics · Middle East · Stock Market · Gold & Commodities · AI
+- **Live market strip:** S&P 500, Nasdaq, Dow, Gold, Silver, Oil, Bitcoin
+- **AI daily briefing:** Claude summarizes each section about twice a day
+- **Ask Claude chat:** ask questions or "what if" forecasts. Claude sees today's
+  headlines and prices and can search the web.
+
+It updates itself every hour via GitHub Actions and is hosted free on GitHub Pages.
+
+## One-time setup
+
+1. **Merge this branch into `main`.** Scheduled workflows only run from the default branch.
+2. **Turn on Pages:** go to repo *Settings → Pages → Build and deployment → Source* and pick
+   **GitHub Actions**. On a free GitHub plan, Pages needs the repo to be **public**.
+   The site has `noindex`, so search engines skip it, but anyone with the URL can open it.
+3. **Add your API key for the briefing:** go to *Settings → Secrets and variables → Actions →
+   New repository secret*, set Name to `ANTHROPIC_API_KEY`, and set Value to your key from
+   https://console.anthropic.com. Without it the site still works, just without the briefing.
+4. **First run:** go to *Actions → Update news → Run workflow*. The site appears at
+   `https://<your-username>.github.io/<repo-name>/`.
+5. **Chat:** open the site, click **Ask Claude**, then **⚙** and paste your API key.
+   The key is saved only in that browser and sent only to Anthropic. It is never stored in
+   the repo or the site.
+
+## Costs
+
+- GitHub Actions and Pages: free.
+- Briefing: two Claude calls a day at low effort, roughly a few cents per day.
+- Chat: pay per question. Opus 5.5 gives the best forecasting reasoning;
+  switch to Sonnet 5.5 in ⚙ for cheaper, faster answers. Web search adds a small per-search fee.
+
+## Customize
+
+- **Add or remove sources:** edit the `feeds` section of `config/sources.yaml`. Any RSS/Atom URL works.
+  A feed that breaks is skipped and shown under "Sources status" at the bottom of the page.
+- **Change what counts as a topic:** edit that topic's `keywords` (regexes) in the same file.
+- **Market tickers:** edit `markets` using Yahoo Finance symbols (e.g. `^FTSE`, `EURUSD=X`).
+- **Briefing frequency:** `BRIEFING_MAX_AGE_HOURS` (default 11) in `scripts/briefing.py`.
+  To refresh it now, run the workflow with *Regenerate the AI briefing now* ticked.
+
+## Run locally
+
+```bash
+pip install -r requirements.txt
+python scripts/fetch_news.py            # writes site/data.json
+ANTHROPIC_API_KEY=... python scripts/briefing.py   # optional
+python -m http.server -d site 8000      # open http://localhost:8000
+python tests/test_fetch_news.py         # offline tests
+```
+
+## How it works
+
+```
+GitHub Action (hourly)
+  └─ scripts/fetch_news.py → fetch RSS feeds + Yahoo prices, tag topics, merge duplicates, rank
+  └─ scripts/briefing.py   → Claude writes the briefing (skipped if <11h old)
+  └─ deploy site/ to GitHub Pages
+Browser
+  └─ site/app.js  → renders site/data.json
+  └─ site/chat.js → calls the Claude API directly with your key
+```
