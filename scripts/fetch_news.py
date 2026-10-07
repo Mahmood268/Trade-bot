@@ -29,6 +29,11 @@ USER_AGENT = (
 TAG_RE = re.compile(r"<[^>]+>")
 WS_RE = re.compile(r"\s+")
 WORD_RE = re.compile(r"[a-z0-9]+")
+IMG_TAG_RE = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.IGNORECASE)
+OG_IMAGE_RE = re.compile(
+    r"<meta[^>]+(?:property|name)=[\"'](?:og:image|twitter:image)(?::src)?[\"'][^>]*>", re.IGNORECASE)
+CONTENT_RE = re.compile(r"content=[\"']([^\"']+)[\"']", re.IGNORECASE)
+IMAGE_EXT_RE = re.compile(r"\.(jpe?g|png|webp|gif)(\?|$)", re.IGNORECASE)
 STOPWORDS = {
     "a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "at", "by",
     "with", "from", "as", "is", "are", "was", "be", "after", "over", "says",
@@ -59,6 +64,69 @@ def entry_time(entry) -> datetime | None:
     return None
 
 
+def upgrade_image(url: str) -> str:
+    """Swap known small-thumbnail URLs for larger renditions."""
+    # BBC serves 240px thumbnails in RSS; the same image exists at 800px.
+    return re.sub(r"(ichef\.bbci\.co\.uk/(?:ace|news)/(?:standard|ws))/\d+/", r"\1/800/", url)
+
+
+def entry_image(entry) -> str | None:
+    """Best image for a feed entry: media:content, thumbnail, enclosure, or inline <img>."""
+    candidates = []
+    for media in entry.get("media_content", []):
+        url = media.get("url", "")
+        is_image = (media.get("medium") == "image" or media.get("type", "").startswith("image")
+                    or IMAGE_EXT_RE.search(url))
+        if url and is_image:
+            candidates.append((int(media.get("width") or 0), url))
+    if candidates:
+        return upgrade_image(max(candidates)[1])
+    for thumb in entry.get("media_thumbnail", []):
+        if thumb.get("url"):
+            return upgrade_image(thumb["url"])
+    for link in entry.get("links", []):
+        if link.get("rel") == "enclosure" and link.get("type", "").startswith("image") and link.get("href"):
+            return link["href"]
+    html_parts = [entry.get("summary", "")] + [c.get("value", "") for c in entry.get("content", [])]
+    for part in html_parts:
+        match = IMG_TAG_RE.search(part or "")
+        if match and not match.group(1).startswith("data:"):
+            return html.unescape(match.group(1))
+    return None
+
+
+def page_image(client: httpx.Client, url: str) -> str | None:
+    """og:image / twitter:image from an article page (only the <head> is read)."""
+    try:
+        with client.stream("GET", url, timeout=8) as resp:
+            if resp.status_code != 200 or "html" not in resp.headers.get("content-type", ""):
+                return None
+            head = b""
+            for chunk in resp.iter_bytes():
+                head += chunk
+                if len(head) > 300_000 or b"</head>" in head.lower():
+                    break
+        text = head.decode("utf-8", "ignore")
+        for tag in OG_IMAGE_RE.findall(text):
+            match = CONTENT_RE.search(tag)
+            if match and match.group(1).startswith("http"):
+                return html.unescape(match.group(1))
+    except Exception:  # noqa: BLE001 - a missing picture is fine
+        return None
+    return None
+
+
+def add_page_images(client: httpx.Client, items: list[dict]) -> None:
+    """Fill in pictures for shown stories whose feed had none."""
+    missing = [i for i in items if not i.get("image") and "news.google.com" not in i["link"]]
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        for item, image in zip(missing, pool.map(lambda i: page_image(client, i["link"]), missing)):
+            item["image"] = image
+    found = sum(1 for i in missing if i["image"])
+    log(f"Images: {sum(1 for i in items if i.get('image'))}/{len(items)} shown stories "
+        f"({found} from article pages)")
+
+
 def parse_feed(feed: dict, content: bytes) -> list[dict]:
     parsed = feedparser.parse(content)
     items = []
@@ -79,6 +147,7 @@ def parse_feed(feed: dict, content: bytes) -> list[dict]:
             "published": published.isoformat() if published else None,
             "summary": "" if "news.google.com" in feed["url"]
             else clean_text(entry.get("summary", "") or entry.get("description", "")),
+            "image": None if "news.google.com" in feed["url"] else entry_image(entry),
             "feed_topics": list(feed.get("topics", [])),
         })
     return items
@@ -141,6 +210,8 @@ def dedupe(items: list[dict], threshold: float = 0.6) -> list[dict]:
         base["topics"] = list(dict.fromkeys(base["topics"] + item["topics"]))
         if not base["summary"] and item["summary"]:
             base["summary"] = item["summary"]
+        if not base.get("image") and item.get("image"):
+            base["image"] = item["image"]
     return kept
 
 
@@ -248,6 +319,9 @@ def build(config: dict, previous: dict, client: httpx.Client,
                         key=lambda i: score(i, now), reverse=True)
         topics_out.append({"key": key, "label": spec["label"], "items": ranked[:per_topic]})
         log(f"  {spec['label']}: {len(ranked)} stories")
+
+    shown = list({id(i): i for t in topics_out for i in t["items"]}.values())
+    add_page_images(client, shown)
 
     return {
         "generated_at": now.isoformat(),

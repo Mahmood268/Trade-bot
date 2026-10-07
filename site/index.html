@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Daily Brief</title>
   <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="style.css">
   <script>
     try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
@@ -14,18 +17,21 @@
   <header class="top">
     <div class="brand">
       <h1>Daily Brief</h1>
-      <span id="updated" class="muted">Loading…</span>
+      <p id="updated" class="muted">Loading…</p>
     </div>
     <div class="top-actions">
-      <input id="search" type="search" placeholder="Filter headlines…" aria-label="Filter headlines">
-      <button id="theme-toggle" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button>
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="search" type="search" placeholder="Search headlines" aria-label="Search headlines">
+      </label>
+      <button id="theme-toggle" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
     </div>
   </header>
 
   <section id="markets" class="markets" aria-label="Markets"></section>
 
   <main>
-    <section id="briefing" class="card briefing" hidden></section>
+    <details id="briefing" class="briefing" hidden></details>
 
     <nav id="tabs" class="tabs" role="tablist"></nav>
     <section id="content"></section>
@@ -36,7 +42,7 @@
     </details>
   </main>
 
-  <button id="chat-open" class="chat-fab" aria-label="Ask Claude">💬 Ask Claude</button>
+  <button id="chat-open" class="chat-fab" aria-label="Ask Claude"><span aria-hidden="true">✦</span> Ask Claude</button>
 
   <aside id="chat" class="chat" hidden aria-label="Ask Claude">
     <div class="chat-head">

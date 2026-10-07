@@ -43,8 +43,31 @@ FEEDS = {
 }
 
 
+MEDIA_RSS = f"""<?xml version="1.0"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>m</title>
+<item><title>Gold price climbs on media content feed</title><link>https://m.test/1</link>
+ <pubDate>{format_datetime(NOW)}</pubDate>
+ <media:content url="https://img.test/small.jpg" medium="image" width="140"/>
+ <media:content url="https://img.test/big.jpg" medium="image" width="1200"/></item>
+<item><title>Gold miners rally on thumbnail feed</title><link>https://m.test/2</link>
+ <pubDate>{format_datetime(NOW)}</pubDate>
+ <media:thumbnail url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/abc.jpg"/></item>
+<item><title>Gold demand from central banks inline image</title><link>https://m.test/3</link>
+ <pubDate>{format_datetime(NOW)}</pubDate>
+ <description>&lt;img src="https://img.test/inline.png"&gt; text</description></item>
+<item><title>Gold story whose picture is only on the article page</title><link>https://m.test/4</link>
+ <pubDate>{format_datetime(NOW)}</pubDate></item>
+</channel></rss>"""
+ARTICLE_HTML = ('<html><head><meta property="og:image" content="https://img.test/og.jpg">'
+                '</head><body>x</body></html>')
+
+
 def handler(request: httpx.Request) -> httpx.Response:
     url = str(request.url)
+    if url == "https://m.test/rss":
+        return httpx.Response(200, text=MEDIA_RSS)
+    if url == "https://m.test/4":
+        return httpx.Response(200, text=ARTICLE_HTML, headers={"content-type": "text/html"})
     if "finance.yahoo.com" in url:
         if "GC%3DF" in url or "GC=F" in url:
             return httpx.Response(200, json={"chart": {"result": [{
@@ -72,6 +95,7 @@ CONFIG = {
         {"name": "AI Blog", "url": "https://ai.test/rss", "topics": ["ai"]},
         {"name": "Reuters", "url": "https://news.google.com/rss/search?q=x"},
         {"name": "Broken", "url": "https://broken.test/rss"},
+        {"name": "Media", "url": "https://m.test/rss"},
     ],
     "markets": [{"symbol": "GC=F", "label": "Gold"}, {"symbol": "^GSPC", "label": "S&P 500"}],
 }
@@ -98,7 +122,7 @@ def test_topics_dedupe_and_filters():
     merged = next(t for t in data["topics"] if t["key"] == "trump")["items"][0]
     assert merged["source"] == "A" and merged["also"] == ["B"] or \
         merged["source"] == "B" and merged["also"] == ["A"]
-    assert titles(data, "gold") == ["Gold hits record high as investors seek safety"]
+    assert "Gold hits record high as investors seek safety" in titles(data, "gold")
     assert titles(data, "middle_east") == ["Israel and Iran exchange strikes overnight"]
     assert "Some product launch" in titles(data, "ai")  # feed default topic
     assert any("Nvidia" in t for t in titles(data, "ai"))
@@ -106,6 +130,16 @@ def test_topics_dedupe_and_filters():
     assert not any("bakery" in t for k in CONFIG["topics"] for t in titles(data, k))
     me = next(t for t in data["topics"] if t["key"] == "middle_east")["items"][0]
     assert me["summary"] == "Tensions rise in Tehran"  # HTML stripped
+
+
+def test_images():
+    images = {i["title"]: i["image"] for t in run()["topics"] for i in t["items"]}
+    assert images["Gold price climbs on media content feed"] == "https://img.test/big.jpg"
+    assert images["Gold miners rally on thumbnail feed"] == \
+        "https://ichef.bbci.co.uk/ace/standard/800/cpsprodpb/abc.jpg"
+    assert images["Gold demand from central banks inline image"] == "https://img.test/inline.png"
+    assert images["Gold story whose picture is only on the article page"] == "https://img.test/og.jpg"
+    assert images["Stocks rally on Wall Street"] is None  # Google News: no picture, no page fetch
 
 
 def test_feed_failures_are_reported_not_fatal():
