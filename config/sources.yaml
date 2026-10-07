@@ -122,7 +122,8 @@ feeds:
   - {name: "Sky News", url: "https://feeds.skynews.com/feeds/rss/world.xml"}
   - {name: "France 24", url: "https://www.france24.com/en/rss"}
   - {name: "DW", url: "https://rss.dw.com/rdf/rss-en-all"}
-  # Reuters and AP have no public RSS any more; pull them via Google News.
+  # Sources without a usable public RSS feed (or that block GitHub's servers)
+  # come in through Google News searches restricted to their site.
   - {name: "Reuters", url: "https://news.google.com/rss/search?q=site:reuters.com+when:1d&hl=en-US&gl=US&ceid=US:en"}
   - {name: "AP", url: "https://news.google.com/rss/search?q=site:apnews.com+when:1d&hl=en-US&gl=US&ceid=US:en"}
 
@@ -131,21 +132,21 @@ feeds:
   - {name: "CNBC", url: "https://www.cnbc.com/id/20910258/device/rss/rss.html", topics: [markets]}
   - {name: "MarketWatch", url: "https://feeds.content.dowjones.io/public/rss/mw_topstories"}
   - {name: "MarketWatch", url: "https://feeds.content.dowjones.io/public/rss/mw_marketpulse", topics: [markets]}
-  - {name: "Yahoo Finance", url: "https://finance.yahoo.com/news/rssindex", topics: [markets]}
+  - {name: "Yahoo Finance", url: "https://news.google.com/rss/search?q=site:finance.yahoo.com+when:1d&hl=en-US&gl=US&ceid=US:en", topics: [markets]}
   - {name: "Investing.com", url: "https://www.investing.com/rss/news_25.rss", topics: [markets]}
   - {name: "Investing.com", url: "https://www.investing.com/rss/news_11.rss", topics: [gold]}
   - {name: "Kitco", url: "https://news.google.com/rss/search?q=site:kitco.com+when:2d&hl=en-US&gl=US&ceid=US:en", topics: [gold]}
 
   # --- Middle East outlets ---
   - {name: "Middle East Eye", url: "https://www.middleeasteye.net/rss", topics: [middle_east]}
-  - {name: "Times of Israel", url: "https://www.timesofisrael.com/feed/", topics: [middle_east]}
+  - {name: "Times of Israel", url: "https://news.google.com/rss/search?q=site:timesofisrael.com+when:1d&hl=en-US&gl=US&ceid=US:en", topics: [middle_east]}
   - {name: "Arab News", url: "https://www.arabnews.com/rss.xml", topics: [middle_east]}
   - {name: "Iran International", url: "https://www.iranintl.com/en/feed", topics: [middle_east]}
 
   # --- AI / tech ---
   - {name: "TechCrunch", url: "https://techcrunch.com/category/artificial-intelligence/feed/", topics: [ai]}
   - {name: "The Verge", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", topics: [ai]}
-  - {name: "VentureBeat", url: "https://venturebeat.com/category/ai/feed/", topics: [ai]}
+  - {name: "VentureBeat", url: "https://news.google.com/rss/search?q=site:venturebeat.com+AI+when:2d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
   - {name: "MIT Tech Review", url: "https://www.technologyreview.com/topic/artificial-intelligence/feed", topics: [ai]}
   - {name: "Anthropic", url: "https://news.google.com/rss/search?q=site:anthropic.com/news+when:7d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
   - {name: "OpenAI", url: "https://openai.com/news/rss.xml", topics: [ai]}

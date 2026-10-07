@@ -29,6 +29,11 @@ USER_AGENT = (
 TAG_RE = re.compile(r"<[^>]+>")
 WS_RE = re.compile(r"\s+")
 WORD_RE = re.compile(r"[a-z0-9]+")
+IMG_TAG_RE = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.IGNORECASE)
+OG_IMAGE_RE = re.compile(
+    r"<meta[^>]+(?:property|name)=[\"'](?:og:image|twitter:image)(?::src)?[\"'][^>]*>", re.IGNORECASE)
+CONTENT_RE = re.compile(r"content=[\"']([^\"']+)[\"']", re.IGNORECASE)
+IMAGE_EXT_RE = re.compile(r"\.(jpe?g|png|webp|gif)(\?|$)", re.IGNORECASE)
 STOPWORDS = {
     "a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "at", "by",
     "with", "from", "as", "is", "are", "was", "be", "after", "over", "says",
@@ -59,6 +64,69 @@ def entry_time(entry) -> datetime | None:
     return None
 
 
+def upgrade_image(url: str) -> str:
+    """Swap known small-thumbnail URLs for larger renditions."""
+    # BBC serves 240px thumbnails in RSS; the same image exists at 800px.
+    return re.sub(r"(ichef\.bbci\.co\.uk/(?:ace|news)/(?:standard|ws))/\d+/", r"\1/800/", url)
+
+
+def entry_image(entry) -> str | None:
+    """Best image for a feed entry: media:content, thumbnail, enclosure, or inline <img>."""
+    candidates = []
+    for media in entry.get("media_content", []):
+        url = media.get("url", "")
+        is_image = (media.get("medium") == "image" or media.get("type", "").startswith("image")
+                    or IMAGE_EXT_RE.search(url))
+        if url and is_image:
+            candidates.append((int(media.get("width") or 0), url))
+    if candidates:
+        return upgrade_image(max(candidates)[1])
+    for thumb in entry.get("media_thumbnail", []):
+        if thumb.get("url"):
+            return upgrade_image(thumb["url"])
+    for link in entry.get("links", []):
+        if link.get("rel") == "enclosure" and link.get("type", "").startswith("image") and link.get("href"):
+            return link["href"]
+    html_parts = [entry.get("summary", "")] + [c.get("value", "") for c in entry.get("content", [])]
+    for part in html_parts:
+        match = IMG_TAG_RE.search(part or "")
+        if match and not match.group(1).startswith("data:"):
+            return html.unescape(match.group(1))
+    return None
+
+
+def page_image(client: httpx.Client, url: str) -> str | None:
+    """og:image / twitter:image from an article page (only the <head> is read)."""
+    try:
+        with client.stream("GET", url, timeout=8) as resp:
+            if resp.status_code != 200 or "html" not in resp.headers.get("content-type", ""):
+                return None
+            head = b""
+            for chunk in resp.iter_bytes():
+                head += chunk
+                if len(head) > 300_000 or b"</head>" in head.lower():
+                    break
+        text = head.decode("utf-8", "ignore")
+        for tag in OG_IMAGE_RE.findall(text):
+            match = CONTENT_RE.search(tag)
+            if match and match.group(1).startswith("http"):
+                return html.unescape(match.group(1))
+    except Exception:  # noqa: BLE001 - a missing picture is fine
+        return None
+    return None
+
+
+def add_page_images(client: httpx.Client, items: list[dict]) -> None:
+    """Fill in pictures for shown stories whose feed had none."""
+    missing = [i for i in items if not i.get("image") and "news.google.com" not in i["link"]]
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        for item, image in zip(missing, pool.map(lambda i: page_image(client, i["link"]), missing)):
+            item["image"] = image
+    found = sum(1 for i in missing if i["image"])
+    log(f"Images: {sum(1 for i in items if i.get('image'))}/{len(items)} shown stories "
+        f"({found} from article pages)")
+
+
 def parse_feed(feed: dict, content: bytes) -> list[dict]:
     parsed = feedparser.parse(content)
     items = []
@@ -79,6 +147,7 @@ def parse_feed(feed: dict, content: bytes) -> list[dict]:
             "published": published.isoformat() if published else None,
             "summary": "" if "news.google.com" in feed["url"]
             else clean_text(entry.get("summary", "") or entry.get("description", "")),
+            "image": None if "news.google.com" in feed["url"] else entry_image(entry),
             "feed_topics": list(feed.get("topics", [])),
         })
     return items
@@ -141,6 +210,8 @@ def dedupe(items: list[dict], threshold: float = 0.6) -> list[dict]:
         base["topics"] = list(dict.fromkeys(base["topics"] + item["topics"]))
         if not base["summary"] and item["summary"]:
             base["summary"] = item["summary"]
+        if not base.get("image") and item.get("image"):
+            base["image"] = item["image"]
     return kept
 
 
@@ -151,34 +222,63 @@ def score(item: dict, now: datetime) -> float:
     return len(item["also"]) * 1.0 - age_h / 12.0
 
 
-def fetch_markets(client: httpx.Client, markets: list[dict], previous: dict) -> list[dict]:
+def yfinance_quote(symbol: str) -> tuple[float, float | None, list[float]]:
+    """Price, previous close and recent daily closes via yfinance.
+
+    yfinance handles Yahoo's cookie/crumb handshake, which plain requests from
+    cloud runners (e.g. GitHub Actions) get rate-limited without.
+    """
+    import yfinance as yf
+
+    hist = yf.Ticker(symbol).history(period="5d", interval="1d", auto_adjust=False)
+    closes = [float(c) for c in hist["Close"].dropna()]
+    if not closes:
+        raise ValueError("no data")
+    return closes[-1], closes[-2] if len(closes) >= 2 else None, closes
+
+
+def chart_quote(client: httpx.Client, symbol: str) -> tuple[float, float | None, list[float]]:
+    """Price, previous close and recent daily closes from Yahoo's chart endpoint."""
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    resp = client.get(url, params={"range": "5d", "interval": "1d"})
+    resp.raise_for_status()
+    result = resp.json()["chart"]["result"][0]
+    meta = result["meta"]
+    closes = [c for c in result["indicators"]["quote"][0].get("close", []) if c is not None]
+    price = meta.get("regularMarketPrice") or (closes[-1] if closes else None)
+    prev_close = meta.get("previousClose")
+    if prev_close is None and len(closes) >= 2:
+        prev_close = closes[-2]
+    if price is None:
+        raise ValueError("no price")
+    return price, prev_close, closes
+
+
+def fetch_markets(quote_sources: list, markets: list[dict], previous: dict) -> list[dict]:
+    """Try each quote source in turn; fall back to the last published value."""
     prev_by_symbol = {m["symbol"]: m for m in previous.get("markets", [])}
     out = []
     for m in markets:
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{m['symbol']}"
-        try:
-            resp = client.get(url, params={"range": "5d", "interval": "1d"})
-            resp.raise_for_status()
-            result = resp.json()["chart"]["result"][0]
-            meta = result["meta"]
-            closes = [c for c in result["indicators"]["quote"][0].get("close", []) if c is not None]
-            price = meta.get("regularMarketPrice") or (closes[-1] if closes else None)
-            prev_close = meta.get("previousClose")
-            if prev_close is None and len(closes) >= 2:
-                prev_close = closes[-2]
-            if price is None:
-                raise ValueError("no price")
-            change = (price - prev_close) / prev_close * 100 if prev_close else None
-            out.append({**m, "price": price, "change_pct": change, "history": closes,
-                        "stale": False})
-        except Exception as exc:  # noqa: BLE001
-            log(f"  market {m['symbol']}: {short_error(exc)}")
+        errors = []
+        for source in quote_sources:
+            try:
+                price, prev_close, closes = source(m["symbol"])
+                break
+            except Exception as exc:  # noqa: BLE001
+                errors.append(short_error(exc))
+        else:
+            log(f"  market {m['symbol']}: {' | '.join(errors)}")
             if m["symbol"] in prev_by_symbol:
                 out.append({**prev_by_symbol[m["symbol"]], "stale": True})
+            continue
+        change = (price - prev_close) / prev_close * 100 if prev_close else None
+        out.append({**m, "price": price, "change_pct": change, "history": closes,
+                    "stale": False})
     return out
 
 
-def build(config: dict, previous: dict, client: httpx.Client) -> dict:
+def build(config: dict, previous: dict, client: httpx.Client,
+          quote_sources: list | None = None) -> dict:
     settings = config.get("settings", {})
     max_age_h = settings.get("max_age_hours", 36)
     per_topic = settings.get("per_topic", 15)
@@ -220,10 +320,14 @@ def build(config: dict, previous: dict, client: httpx.Client) -> dict:
         topics_out.append({"key": key, "label": spec["label"], "items": ranked[:per_topic]})
         log(f"  {spec['label']}: {len(ranked)} stories")
 
+    shown = list({id(i): i for t in topics_out for i in t["items"]}.values())
+    add_page_images(client, shown)
+
     return {
         "generated_at": now.isoformat(),
         "topics": topics_out,
-        "markets": fetch_markets(client, config.get("markets", []), previous),
+        "markets": fetch_markets(quote_sources or [yfinance_quote, lambda s: chart_quote(client, s)],
+                                 config.get("markets", []), previous),
         "briefing": previous.get("briefing"),
         "feeds": feed_status,
     }
