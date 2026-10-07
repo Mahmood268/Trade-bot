@@ -311,6 +311,8 @@
       if (this.idx >= this.lines.length) { this.playing = false; this.idx = 0; this.ui("Finished"); return; }
       const u = new SpeechSynthesisUtterance(this.lines[this.idx]);
       u.rate = Number(store.get("speech-rate", "1"));
+      const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === store.get("speech-voice"));
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
       u.onend = () => { if (this.playing && u === this.current) { this.idx++; this.speakCurrent(); } };
       this.current = u;
       speechSynthesis.speak(u);
@@ -399,6 +401,17 @@
     $("#feeds").innerHTML = feeds.map((f) =>
       `<li class="${f.ok ? "" : "bad"}" title="${esc(f.error || f.url)}"><span>${esc(f.name)}</span><span>${f.ok ? `${f.count} items` : "failed"}</span></li>`
     ).join("");
+  }
+
+  // The browser's own voices; English ones first. They can load late, so this reruns.
+  function renderVoices() {
+    if (!speech.supported) { $("#speech-voice").closest(".row").hidden = true; return; }
+    const lang = (navigator.language || "en").slice(0, 2);
+    const voices = speechSynthesis.getVoices().slice().sort((a, b) =>
+      (b.lang.startsWith(lang) - a.lang.startsWith(lang)) || a.name.localeCompare(b.name));
+    const saved = store.get("speech-voice", "");
+    $("#speech-voice").innerHTML = `<option value="">Default</option>${voices.map((v) =>
+      `<option value="${esc(v.voiceURI)}"${v.voiceURI === saved ? " selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("")}`;
   }
 
   function setTheme(dark) {
@@ -517,6 +530,20 @@
   });
   $("#dark-toggle").addEventListener("change", (e) => setTheme(e.target.checked));
   $("#speech-rate").addEventListener("change", (e) => store.set("speech-rate", e.target.value));
+  $("#speech-voice").addEventListener("change", (e) => {
+    store.set("speech-voice", e.target.value);
+    // A short sample so the choice can be heard right away.
+    if (speech.supported && !speech.playing) {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(`Good ${partOfDay()}. Here is your brief.`);
+      const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === e.target.value);
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
+      u.rate = Number(store.get("speech-rate", "1"));
+      speechSynthesis.speak(u);
+    }
+  });
+  if (speech.supported) speechSynthesis.addEventListener("voiceschanged", renderVoices);
+  renderVoices();
   window.addEventListener("chat-settings-saved", renderSettings);
   window.addEventListener("hashchange", route);
 

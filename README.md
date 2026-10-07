@@ -10,7 +10,7 @@ Reuters, AP and Yahoo Finance (stocks and AI) into one page, with:
     that shape the feed, and The Daily Scan: a read-aloud brief plus a short summary per topic.
   - **Globe:** a spinnable globe that lights up the countries in today's stories
     (Explore, Conflict, Elections, Markets); tap a country to read its stories.
-  - **Settings:** dark mode, read-aloud speed, Claude API key, sources status.
+  - **Settings:** dark mode, read-aloud speed and voice, Claude API key, sources status.
 - **Live market strip:** S&P 500, Gold, Nvidia, Marvell
 - **AI daily briefing:** Claude summarizes each section about twice a day
 - **Ask Claude chat:** ask questions or "what if" forecasts. Claude sees today's
