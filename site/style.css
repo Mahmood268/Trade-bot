@@ -632,3 +632,4 @@ body:has(.chat:not([hidden])) .claude-fab { display: none; }
 /* Ask Claude switched off (see index.html) */
 .no-chat .chat-only { display: none !important; }
 @media (max-width: 350px) { #globe-modes .mode-chip { font-size: 13px; padding-inline: 2px; } #globe-modes .mode-chip svg { display: none; } }
+.chart-card[hidden] { display: none; }
