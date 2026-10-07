@@ -372,7 +372,8 @@
     $("#topic-head").innerHTML = `<span class="tile-icon" style="--tc:${look(key).color}">${icon(key)}</span>
       <div><h1 class="serif">${esc(labelOf(key))}</h1>
       <p class="muted">${list.length} stories · updated ${esc(timeAgo(state.data.generated_at))}</p></div>`;
-    $("#search-box").hidden = !isAll;
+    state.topicList = list;
+    $("#search").placeholder = isAll ? "Search headlines" : "Search a stock, gold, a name...";
     $("#topic-charts").innerHTML = isAll ? "" : window.NEWS_CHARTS?.cardsFor(key) || "";
     const b = isAll ? null : briefingFor(key);
     $("#topic-brief").innerHTML = b?.bullets?.length ? `<div class="short-version" style="--tc:${look(key).color}">
@@ -382,6 +383,10 @@
 
   function renderTopicList(list) {
     const q = state.query.toLowerCase();
+    // Chart cards (Nvidia, Gold...) stay only if they match what was typed.
+    $$("#topic-charts .chart-card").forEach((c) => {
+      c.hidden = !!q && !`${c.textContent} ${c.dataset.chart}`.toLowerCase().includes(q);
+    });
     const shown = q ? list.filter(({ item }) => `${item.title} ${item.summary} ${item.source}`.toLowerCase().includes(q)) : list;
     $("#topic-list").innerHTML = shown.length ? shown.map(storyRow).join("")
       : `<p class="empty">${q ? "Nothing matches. Try another word." : "No stories right now."}</p>`;
@@ -527,7 +532,8 @@
 
   $("#search").addEventListener("input", (e) => {
     state.query = e.target.value.trim();
-    renderTopicList(allStories());
+    // Typing searches every section, so "Nvidia" finds it wherever it was reported.
+    renderTopicList(state.query ? allStories() : state.topicList || allStories());
   });
   $("#dark-toggle").addEventListener("change", (e) => setTheme(e.target.checked));
   $("#speech-rate").addEventListener("change", (e) => store.set("speech-rate", e.target.value));
