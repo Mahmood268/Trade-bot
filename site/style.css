@@ -80,6 +80,7 @@ main {
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
   overflow-x: auto; scrollbar-width: none;
+  padding-top: env(safe-area-inset-top); /* installed app: clear the status bar */
 }
 .markets::-webkit-scrollbar { display: none; }
 .markets-inner {

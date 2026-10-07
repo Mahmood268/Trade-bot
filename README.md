@@ -38,6 +38,14 @@ It updates itself every hour via GitHub Actions and is hosted free on GitHub Pag
    The key is saved only in that browser and sent only to Anthropic. It is never stored in
    the repo or the site.
 
+## Install on your phone
+
+Open the site in your phone's browser, then:
+- **iPhone (Safari):** tap Share, then **Add to Home Screen**.
+- **Android (Chrome):** tap the menu (three dots), then **Install app** or **Add to Home screen**.
+
+It opens full screen like an app and updates itself, with no app store involved.
+
 ## Costs
 
 - GitHub Actions and Pages: free.
