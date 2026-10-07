@@ -116,6 +116,9 @@ feeds:
   # servers), so they come in through Google News searches restricted to their site.
   - {name: "Reuters", url: "https://news.google.com/rss/search?q=site:reuters.com+when:1d&hl=en-US&gl=US&ceid=US:en"}
   - {name: "AP", url: "https://news.google.com/rss/search?q=site:apnews.com+when:1d&hl=en-US&gl=US&ceid=US:en"}
+  # Yahoo Finance, only for the Stock Market and AI sections.
+  - {name: "Yahoo Finance", url: "https://news.google.com/rss/search?q=site:finance.yahoo.com+when:1d&hl=en-US&gl=US&ceid=US:en", topics: [markets]}
+  - {name: "Yahoo Finance", url: "https://news.google.com/rss/search?q=site:finance.yahoo.com+AI+when:2d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
 
 # Market tickers (Yahoo Finance symbols).
 markets:
