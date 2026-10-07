@@ -154,9 +154,6 @@ feeds:
 # Market tickers (Yahoo Finance symbols).
 markets:
   - {symbol: "^GSPC", label: "S&P 500"}
-  - {symbol: "^IXIC", label: "Nasdaq"}
-  - {symbol: "^DJI", label: "Dow"}
   - {symbol: "GC=F", label: "Gold"}
-  - {symbol: "SI=F", label: "Silver"}
-  - {symbol: "CL=F", label: "Oil (WTI)"}
-  - {symbol: "BTC-USD", label: "Bitcoin"}
+  - {symbol: "NVDA", label: "Nvidia"}
+  - {symbol: "MRVL", label: "Marvell"}
