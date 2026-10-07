@@ -157,8 +157,8 @@
         <span class="topic-pill">${icon(key)}${esc(lk.short)}</span>
         <span class="seen-mark">✓ Seen</span>
       </div>
-      <a class="card-title serif" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" data-read>${esc(item.title)}</a>
-      ${item.summary ? `<p class="card-summary">${esc(item.summary)}</p>` : ""}
+      <a class="card-title serif" href="#" data-story="${esc(item.link)}">${esc(item.title)}</a>
+      ${item.summary ? `<p class="card-summary" data-story="${esc(item.link)}">${esc(item.summary)}</p>` : ""}
       <p class="card-meta">${esc(item.source)}${n > 1 ? ` <span title="${esc(outlets(item).join(", "))}">+${n - 1} more</span>` : ""} · ${esc(timeAgo(item.published))}</p>
       <button class="card-foot chat-only" data-analyze="${idx}">
         <span>Get Claude's analysis</span><span class="badge">✦ AI</span>
@@ -355,14 +355,14 @@
     const n = outlets(item).length;
     const img = item.image
       ? `<img src="${esc(item.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : "";
-    return `<article class="story" style="--tc:${look(key).color}">
+    return `<article class="story" data-story="${esc(item.link)}" style="--tc:${look(key).color}">
       <div class="story-text">
         <p class="story-meta"><span class="dot"></span>${esc(look(key).short)} · ${esc(item.source)}${n > 1 ? ` +${n - 1}` : ""} · ${esc(timeAgo(item.published))}</p>
-        <a class="story-title serif" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>
+        <a class="story-title serif" href="#">${esc(item.title)}</a>
         ${item.summary ? `<p class="story-summary">${esc(item.summary)}</p>` : ""}
         <button class="ask-btn chat-only" data-ask-link="${esc(item.link)}">✦ Ask Claude</button>
       </div>
-      ${img ? `<a class="story-thumb" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">${img}</a>` : ""}
+      ${img ? `<span class="story-thumb" aria-hidden="true">${img}</span>` : ""}
     </article>`;
   }
 
@@ -483,6 +483,64 @@
     state.loaded = true;
   }
 
+  // ---------- story page (read inside the site) ----------
+
+  function findStory(link) {
+    const hit = allStories().find((x) => x.item.link === link);
+    if (hit) return hit;
+    const w = (state.data.world || []).find((i) => i.link === link);
+    return w ? { item: w, key: w.topics?.[0] || "all" } : null;
+  }
+
+  const COMMON = new Set("that this with from have after over says said will into about more than amid what when were their they been could would three years year first last week weeks month months days today news report live update people time make".split(" "));
+  const keyWords = (t) => (t.toLowerCase().match(/[a-z]{4,}/g) || []).filter((w) => !COMMON.has(w));
+
+  function related(item, key) {
+    const words = new Set(keyWords(item.title));
+    return allStories()
+      .filter((x) => x.item.link !== item.link)
+      .map((x) => ({ x, n: keyWords(x.item.title).filter((w) => words.has(w)).length + (x.key === key ? 0.5 : 0) }))
+      .filter((r) => r.n >= 1.5)
+      .sort((a, b) => b.n - a.n).slice(0, 4).map((r) => r.x);
+  }
+
+  function openStory(link) {
+    const found = findStory(link);
+    if (!found) return;
+    const { item, key } = found;
+    const lk = look(key);
+    const others = (item.also || []);
+    const host = (() => { try { return new URL(item.link).hostname.replace(/^www\./, ""); } catch { return item.source; } })();
+    $("#story-body").innerHTML = `
+      <span class="topic-pill" style="--tc:${lk.color}">${icon(key)}${esc(lk.short)}</span>
+      <h1 class="story-headline serif">${esc(item.title)}</h1>
+      <p class="story-byline">${esc(item.source)} · ${esc(timeAgo(item.published))}${others.length ? ` · also covered by ${esc(others.join(", "))}` : ""}</p>
+      ${item.image ? `<img class="story-hero" src="${esc(item.image)}" alt="" referrerpolicy="no-referrer">` : ""}
+      ${item.summary ? `<p class="story-lede">${esc(item.summary)}</p>` : `<p class="story-lede muted">No summary came with this story yet.</p>`}
+      ${(() => { const r = related(item, key); return r.length ? `<h3 class="label story-related-label">Related</h3>
+        <div class="story-related">${r.map(({ item: o, key: k }) => `<a href="#" class="story-related-item" data-story="${esc(o.link)}" style="--tc:${look(k).color}">
+          <span class="story-meta"><span class="dot"></span>${esc(look(k).short)} · ${esc(o.source)} · ${esc(timeAgo(o.published))}</span>
+          <span class="serif">${esc(o.title)}</span></a>`).join("")}</div>` : ""; })()}
+      <p class="story-credit">Reported by ${esc(item.source)}. <a href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">Original at ${esc(host)}</a></p>`;
+    $("#story-body").querySelector(".story-hero")?.addEventListener("error", (e) => e.target.remove());
+    const page = $("#story");
+    const wasOpen = !page.hidden;
+    page.hidden = false;
+    page.scrollTop = 0;
+    document.body.classList.add("story-open");
+    if (!wasOpen) history.pushState({ story: true }, "");
+    $("#sheet").hidden = true;
+  }
+
+  function closeStory(fromHistory) {
+    if ($("#story").hidden) return;
+    $("#story").hidden = true;
+    document.body.classList.remove("story-open");
+    if (!fromHistory && history.state?.story) history.back();
+  }
+  window.addEventListener("popstate", () => closeStory(true));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeStory(); });
+
   // ---------- events ----------
 
   // Broken or hotlink-blocked photos are dropped.
@@ -492,6 +550,15 @@
 
   document.addEventListener("click", (e) => {
     const t = e.target;
+    if (t.closest("[data-close-story]")) { closeStory(); return; }
+    const story = t.closest("[data-story]");
+    if (story && !t.closest("button:not([data-story]), .ask-btn")) {
+      e.preventDefault();
+      const card = story.closest(".front-card");
+      if (card) markSeen(card.dataset.link);
+      openStory(story.dataset.story);
+      return;
+    }
     const toggle = t.closest("[data-topic-toggle]");
     if (toggle) {
       const mine = new Set(myTopics());
@@ -508,8 +575,6 @@
       askAbout(entry.item);
       return;
     }
-    const read = t.closest("[data-read]");
-    if (read) { markSeen(read.closest(".front-card").dataset.link); return; }
     const dot = t.closest("[data-dot]");
     if (dot) {
       const card = $$(".front-card")[Number(dot.dataset.dot)];
@@ -608,7 +673,7 @@
       state.data.topics.map((t) => `${t.label}: ${t.items.length} stories`).join(", ")}).` };
   }
 
-  window.NEWS_APP = { look, icon, labelOf, timeAgo, esc, askAbout, allStories, screenContext };
+  window.NEWS_APP = { openStory, look, icon, labelOf, timeAgo, esc, askAbout, allStories, screenContext };
 
   route();
   load();
