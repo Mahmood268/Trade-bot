@@ -105,51 +105,17 @@ topics:
       - '\bmistral\b|\bdeepseek\b'
 
 feeds:
-  # --- Major world news ---
+  # Kept to a few trusted outlets plus the two big wire services, to cut noise.
   - {name: "BBC", url: "https://feeds.bbci.co.uk/news/world/rss.xml"}
   - {name: "BBC", url: "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"}
   - {name: "BBC", url: "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml"}
   - {name: "BBC", url: "https://feeds.bbci.co.uk/news/business/rss.xml"}
   - {name: "BBC", url: "https://feeds.bbci.co.uk/news/technology/rss.xml"}
   - {name: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml"}
-  - {name: "The Guardian", url: "https://www.theguardian.com/world/rss"}
-  - {name: "The Guardian", url: "https://www.theguardian.com/us-news/rss"}
-  - {name: "The Guardian", url: "https://www.theguardian.com/business/rss"}
-  - {name: "CNN", url: "http://rss.cnn.com/rss/edition_world.rss"}
-  - {name: "CNN", url: "http://rss.cnn.com/rss/cnn_allpolitics.rss"}
-  - {name: "NPR", url: "https://feeds.npr.org/1001/rss.xml"}
-  - {name: "NPR", url: "https://feeds.npr.org/1014/rss.xml"}
-  - {name: "Sky News", url: "https://feeds.skynews.com/feeds/rss/world.xml"}
-  - {name: "France 24", url: "https://www.france24.com/en/rss"}
-  - {name: "DW", url: "https://rss.dw.com/rdf/rss-en-all"}
-  # Sources without a usable public RSS feed (or that block GitHub's servers)
-  # come in through Google News searches restricted to their site.
+  # Reuters and AP don't offer a usable public RSS feed (or block GitHub's
+  # servers), so they come in through Google News searches restricted to their site.
   - {name: "Reuters", url: "https://news.google.com/rss/search?q=site:reuters.com+when:1d&hl=en-US&gl=US&ceid=US:en"}
   - {name: "AP", url: "https://news.google.com/rss/search?q=site:apnews.com+when:1d&hl=en-US&gl=US&ceid=US:en"}
-
-  # --- Financial news ---
-  - {name: "CNBC", url: "https://www.cnbc.com/id/100003114/device/rss/rss.html"}
-  - {name: "CNBC", url: "https://www.cnbc.com/id/20910258/device/rss/rss.html", topics: [markets]}
-  - {name: "MarketWatch", url: "https://feeds.content.dowjones.io/public/rss/mw_topstories"}
-  - {name: "MarketWatch", url: "https://feeds.content.dowjones.io/public/rss/mw_marketpulse", topics: [markets]}
-  - {name: "Yahoo Finance", url: "https://news.google.com/rss/search?q=site:finance.yahoo.com+when:1d&hl=en-US&gl=US&ceid=US:en", topics: [markets]}
-  - {name: "Investing.com", url: "https://www.investing.com/rss/news_25.rss", topics: [markets]}
-  - {name: "Investing.com", url: "https://www.investing.com/rss/news_11.rss", topics: [gold]}
-  - {name: "Kitco", url: "https://news.google.com/rss/search?q=site:kitco.com+when:2d&hl=en-US&gl=US&ceid=US:en", topics: [gold]}
-
-  # --- Middle East outlets ---
-  - {name: "Middle East Eye", url: "https://www.middleeasteye.net/rss", topics: [middle_east]}
-  - {name: "Times of Israel", url: "https://news.google.com/rss/search?q=site:timesofisrael.com+when:1d&hl=en-US&gl=US&ceid=US:en", topics: [middle_east]}
-  - {name: "Arab News", url: "https://www.arabnews.com/rss.xml", topics: [middle_east]}
-  - {name: "Iran International", url: "https://www.iranintl.com/en/feed", topics: [middle_east]}
-
-  # --- AI / tech ---
-  - {name: "TechCrunch", url: "https://techcrunch.com/category/artificial-intelligence/feed/", topics: [ai]}
-  - {name: "The Verge", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", topics: [ai]}
-  - {name: "VentureBeat", url: "https://news.google.com/rss/search?q=site:venturebeat.com+AI+when:2d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
-  - {name: "MIT Tech Review", url: "https://www.technologyreview.com/topic/artificial-intelligence/feed", topics: [ai]}
-  - {name: "Anthropic", url: "https://news.google.com/rss/search?q=site:anthropic.com/news+when:7d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
-  - {name: "OpenAI", url: "https://openai.com/news/rss.xml", topics: [ai]}
 
 # Market tickers (Yahoo Finance symbols).
 markets:
