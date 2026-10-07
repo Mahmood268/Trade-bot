@@ -639,3 +639,12 @@ body:has(.chat:not([hidden])) .claude-fab { display: none; }
   background: var(--card); color: var(--text); font-size: 20px; line-height: 1; display: grid; place-items: center;
 }
 .more-news { display: block; margin: 14px 0 4px; color: var(--gold); font-weight: 600; }
+
+/* TradingView live chart (Stock Market page) */
+.tv { margin: 6px 0 22px; }
+.tv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.tv-head .muted { font-size: 13px; }
+.tv-picks { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.tv-chart { height: min(62vh, 520px); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--card); }
+.tradingview-widget-copyright { font-size: 12px; text-align: right; padding: 8px 12px 0; }
+.tradingview-widget-copyright a { color: var(--muted); }

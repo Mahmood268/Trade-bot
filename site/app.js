@@ -375,6 +375,10 @@
     state.topicList = list;
     $("#search").placeholder = isAll ? "Search headlines" : "Search a stock, gold, a name...";
     $("#topic-charts").innerHTML = isAll ? "" : window.NEWS_CHARTS?.cardsFor(key) || "";
+    // Stock Market gets TradingView's live chart; it loads once per visit, not on every refresh.
+    const tv = key === "markets" && window.NEWS_TV;
+    if (!tv) $("#topic-tv").innerHTML = "";
+    else if (!$("#tv-chart")) { $("#topic-tv").innerHTML = tv.section(); tv.mount(); }
     const b = isAll ? null : briefingFor(key);
     $("#topic-brief").innerHTML = b?.bullets?.length ? `<div class="short-version" style="--tc:${look(key).color}">
       <h3 class="label">The short version</h3><ul>${b.bullets.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
