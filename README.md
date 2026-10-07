@@ -1,8 +1,7 @@
 # Daily Brief
 
 A personal news dashboard that gathers the top headlines from BBC, Al Jazeera,
-Reuters, AP, The Guardian, CNN, CNBC, MarketWatch, Yahoo Finance, Kitco,
-Middle East outlets and AI news sites into one page, with:
+Reuters and AP into one page, with:
 
 - **Five sections:** Trump & US Politics · Middle East · Stock Market · Gold & Commodities · AI
 - **Live market strip:** S&P 500, Gold, Nvidia, Marvell
