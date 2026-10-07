@@ -240,7 +240,6 @@ async function send(question) {
 
 function openChat(prefill) {
   $("#chat").hidden = false;
-  $("#chat-open").hidden = true;
   if (!store.get("anthropic-key")) openSettings();
   if (prefill) $("#chat-input").value = prefill;
   $("#chat-input").focus();
@@ -253,8 +252,11 @@ function openSettings() {
   $("#web-search").checked = store.get("web-search", "1") === "1";
 }
 
-$("#chat-open").addEventListener("click", () => openChat());
-$("#chat-close").addEventListener("click", () => { $("#chat").hidden = true; $("#chat-open").hidden = false; });
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-open-chat]")) openChat();
+  if (e.target.closest("[data-chat-settings]")) { openChat(); openSettings(); }
+});
+$("#chat-close").addEventListener("click", () => { $("#chat").hidden = true; });
 $("#chat-settings-toggle").addEventListener("click", () => {
   if ($("#chat-settings").hidden) openSettings(); else $("#chat-settings").hidden = true;
 });
@@ -265,6 +267,7 @@ $("#chat-settings").addEventListener("submit", (e) => {
   store.set("model", $("#model").value);
   store.set("web-search", $("#web-search").checked ? "1" : "0");
   $("#chat-settings").hidden = true;
+  window.dispatchEvent(new CustomEvent("chat-settings-saved"));
 });
 $("#chat-new").addEventListener("click", () => {
   if (busy) return;

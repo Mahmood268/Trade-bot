@@ -3,7 +3,14 @@
 A personal news dashboard that gathers the top headlines from BBC, Al Jazeera,
 Reuters, AP and Yahoo Finance (stocks and AI) into one page, with:
 
-- **Five sections:** Trump & US Politics · Middle East · Stock Market · Gold & Commodities · AI
+- **Four screens, laid out like the Root News app:**
+  - **Home:** "Your world today" with a tile per section (Trump & US Politics · Middle East ·
+    Stock Market · Gold & Commodities · AI · All Stories).
+  - **Signal:** a swipeable Front Page of the top 15 stories with "seen" tracking, topic chips
+    that shape the feed, and The Daily Scan: a read-aloud brief plus a short summary per topic.
+  - **Globe:** a spinnable globe that lights up the countries in today's stories
+    (Explore, Conflict, Elections, Markets); tap a country to read its stories.
+  - **Settings:** dark mode, read-aloud speed, Claude API key, sources status.
 - **Live market strip:** S&P 500, Gold, Nvidia, Marvell
 - **AI daily briefing:** Claude summarizes each section about twice a day
 - **Ask Claude chat:** ask questions or "what if" forecasts. Claude sees today's
@@ -60,6 +67,7 @@ GitHub Action (hourly)
   └─ scripts/briefing.py   → Claude writes the briefing (skipped if <11h old)
   └─ deploy site/ to GitHub Pages
 Browser
-  └─ site/app.js  → renders site/data.json
+  └─ site/app.js  → renders site/data.json (Home, Signal, Settings, topic pages)
+  └─ site/globe.js → the Globe screen (d3-geo + world-atlas, vendored in site/vendor/)
   └─ site/chat.js → calls the Claude API directly with your key
 ```
