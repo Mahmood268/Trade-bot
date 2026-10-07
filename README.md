@@ -14,6 +14,7 @@ Reuters, AP and Yahoo Finance (stocks and AI) into one site, with:
 - **Live market strip:** S&P 500, Gold, Nvidia, Marvell. Tap a price for its candlestick chart
   (5 days of hourly candles, or 1 month to 1 year of daily ones). The Stock Market, Gold and AI
   pages show chart cards for their tickers.
+  The Stock Market page also has TradingView's live chart, with a search for any stock.
 - **AI daily briefing:** Claude summarizes each section about twice a day
 - **Ask Claude button on every screen:** ask questions or "what if" forecasts by typing or
   talking (mic). Claude sees today's headlines and prices, is told what you have open (the story
