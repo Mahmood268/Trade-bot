@@ -72,7 +72,9 @@ def handler(request: httpx.Request) -> httpx.Response:
         if "GC%3DF" in url or "GC=F" in url:
             return httpx.Response(200, json={"chart": {"result": [{
                 "meta": {"regularMarketPrice": 2700.0, "previousClose": 2650.0},
-                "indicators": {"quote": [{"close": [2600, 2650, None, 2700]}]}}]}})
+                "timestamp": [1, 2, 3, 4],
+                "indicators": {"quote": [{"open": [2590, 2610, None, 2660], "high": [2610, 2660, None, 2710],
+                                          "low": [2580, 2600, None, 2650], "close": [2600, 2650, None, 2700]}]}}]}})
         return httpx.Response(500)
     body = FEEDS.get(url)
     if body is None:
@@ -104,7 +106,8 @@ CONFIG = {
 def run(previous=None):
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         return fetch_news.build(CONFIG, previous or {}, client,
-                                quote_sources=[failing_source, lambda s: fetch_news.chart_quote(client, s)])
+                                quote_sources=[failing_source, lambda s: fetch_news.chart_quote(client, s)],
+                                candle_sources=[failing_source, lambda s: fetch_news.chart_candles(client, s)])
 
 
 def failing_source(symbol):
@@ -153,6 +156,16 @@ def test_markets_with_stale_fallback():
     assert markets["GC=F"]["price"] == 2700.0 and not markets["GC=F"]["stale"]
     assert abs(markets["GC=F"]["change_pct"] - 1.8868) < 0.01
     assert markets["^GSPC"]["stale"] and markets["^GSPC"]["price"] == 5000
+
+
+def test_candles_with_fallback():
+    old_bars = {"1d": [[1, 1, 2, 0.5, 1.5]], "1h": []}
+    previous = {"markets": [{"symbol": "^GSPC", "label": "S&P 500", "price": 5000, "candles": old_bars}]}
+    markets = {m["symbol"]: m for m in run(previous)["markets"]}
+    gold = markets["GC=F"]["candles"]
+    assert gold["1d"] == [[1, 2590, 2610, 2580, 2600], [2, 2610, 2660, 2600, 2650], [4, 2660, 2710, 2650, 2700]]
+    assert gold["1h"] == gold["1d"]  # the mock serves the same bars for every range
+    assert markets["^GSPC"]["candles"] == old_bars  # source down: keep the last published bars
 
 
 def test_real_config_parses():

@@ -161,6 +161,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="search" type="search" placeholder="Search headlines" aria-label="Search headlines">
       </label>
+      <div id="topic-charts"></div>
       <div id="topic-brief"></div>
       <div id="topic-list" class="story-list"></div>
     </section>
@@ -177,6 +178,25 @@
   <button id="claude-fab" class="claude-fab" data-open-chat title="Ask Claude about this screen" aria-label="Ask Claude about this screen">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c.5 4.6 2.4 6.5 7 7-4.6.5-6.5 2.4-7 7-.5-4.6-2.4-6.5-7-7 4.6-.5 6.5-2.4 7-7z"/><path d="M19 15.5c.2 1.8.9 2.5 2.7 2.7-1.8.2-2.5.9-2.7 2.7-.2-1.8-.9-2.5-2.7-2.7 1.8-.2 2.5-.9 2.7-2.7z"/></svg>
   </button>
+
+  <!-- Candlestick chart for a ticker -->
+  <div id="chart-sheet" class="sheet" hidden>
+    <div class="sheet-card chart-card-sheet" role="dialog" aria-modal="true" aria-labelledby="chart-title">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <div>
+          <h2 id="chart-title" class="serif"></h2>
+          <p id="chart-price" class="chart-price"></p>
+        </div>
+        <button class="square-btn" data-close-chart aria-label="Close">✕</button>
+      </div>
+      <div id="chart-ranges" class="range-chips"></div>
+      <p id="chart-ohlc" class="chart-ohlc muted"></p>
+      <div id="chart-box" class="chart-box"></div>
+      <p class="chart-note muted">Candles update every hour. <a id="chart-live" href="#" target="_blank" rel="noopener noreferrer">Live chart on Yahoo Finance ↗</a></p>
+      <button id="chart-ask" class="primary wide">✦ Ask Claude about this chart</button>
+    </div>
+  </div>
 
   <!-- Country stories from the globe -->
   <div id="sheet" class="sheet" hidden>
@@ -248,6 +268,7 @@
   <script src="vendor/topojson-client.min.js"></script>
   <script src="app.js"></script>
   <script src="globe.js"></script>
+  <script src="charts.js"></script>
   <script type="module" src="chat.js"></script>
 </body>
 </html>

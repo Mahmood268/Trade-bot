@@ -1,7 +1,7 @@
 # Daily Brief
 
 A personal news dashboard that gathers the top headlines from BBC, Al Jazeera,
-Reuters, AP and Yahoo Finance (stocks and AI) into one page, with:
+Reuters, AP and Yahoo Finance (stocks and AI) into one site, with:
 
 - **Four screens, laid out like the Root News app:**
   - **Home:** "Your world today" with a tile per section (Trump & US Politics · Middle East ·
@@ -11,10 +11,14 @@ Reuters, AP and Yahoo Finance (stocks and AI) into one page, with:
   - **Globe:** a spinnable globe that lights up the countries in today's stories
     (Explore, Conflict, Elections, Markets); tap a country to read its stories.
   - **Settings:** dark mode, read-aloud speed and voice, Claude API key, sources status.
-- **Live market strip:** S&P 500, Gold, Nvidia, Marvell
+- **Live market strip:** S&P 500, Gold, Nvidia, Marvell. Tap a price for its candlestick chart
+  (5 days of hourly candles, or 1 month to 1 year of daily ones). The Stock Market, Gold and AI
+  pages show chart cards for their tickers.
 - **AI daily briefing:** Claude summarizes each section about twice a day
-- **Ask Claude chat:** ask questions or "what if" forecasts. Claude sees today's
-  headlines and prices and can search the web.
+- **Ask Claude button on every screen:** ask questions or "what if" forecasts by typing or
+  talking (mic). Claude sees today's headlines and prices, is told what you have open (the story
+  card, section page, country on the globe or chart) and can search the web. Spoken questions
+  get spoken answers.
 
 It updates itself every hour via GitHub Actions and is hosted free on GitHub Pages.
 
@@ -29,7 +33,7 @@ It updates itself every hour via GitHub Actions and is hosted free on GitHub Pag
    https://console.anthropic.com. Without it the site still works, just without the briefing.
 4. **First run:** go to *Actions → Update news → Run workflow*. The site appears at
    `https://<your-username>.github.io/<repo-name>/`.
-5. **Chat:** open the site, click **Ask Claude**, then **⚙** and paste your API key.
+5. **Chat:** open the site, tap the gold ✦ button, then **⚙** and paste your API key.
    The key is saved only in that browser and sent only to Anthropic. It is never stored in
    the repo or the site.
 
@@ -45,7 +49,8 @@ It updates itself every hour via GitHub Actions and is hosted free on GitHub Pag
 - **Add or remove sources:** edit the `feeds` section of `config/sources.yaml`. Any RSS/Atom URL works.
   A feed that breaks is skipped and shown under "Sources status" at the bottom of the page.
 - **Change what counts as a topic:** edit that topic's `keywords` (regexes) in the same file.
-- **Market tickers:** edit `markets` using Yahoo Finance symbols (e.g. `^FTSE`, `EURUSD=X`).
+- **Market tickers:** edit `markets` using Yahoo Finance symbols (e.g. `^FTSE`, `EURUSD=X`);
+  `topics` picks the section pages that show its chart card.
 - **Briefing frequency:** `BRIEFING_MAX_AGE_HOURS` (default 11) in `scripts/briefing.py`.
   To refresh it now, run the workflow with *Regenerate the AI briefing now* ticked.
 

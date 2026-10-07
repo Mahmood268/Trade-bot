@@ -254,11 +254,66 @@ def chart_quote(client: httpx.Client, symbol: str) -> tuple[float, float | None,
     return price, prev_close, closes
 
 
-def fetch_markets(quote_sources: list, markets: list[dict], previous: dict) -> list[dict]:
+# Candle sets for the chart view: a year of daily bars and five days of hourly bars.
+CANDLE_RANGES = {"1d": ("1y", "1d"), "1h": ("5d", "60m")}
+
+
+def _bar(t: float, o, h, low, c) -> list | None:
+    values = [o, h, low, c]
+    if any(v is None or v != v for v in values):  # missing or NaN
+        return None
+    return [int(t), *(round(float(v), 4) for v in values)]
+
+
+def yfinance_candles(symbol: str) -> dict[str, list]:
+    """OHLC bars per range via yfinance: {"1d": [[unix, o, h, l, c], ...], "1h": [...]}."""
+    import yfinance as yf
+
+    ticker = yf.Ticker(symbol)
+    out = {}
+    for key, (period, interval) in CANDLE_RANGES.items():
+        hist = ticker.history(period=period, interval=interval, auto_adjust=False)
+        bars = [_bar(ts.timestamp(), r["Open"], r["High"], r["Low"], r["Close"]) for ts, r in hist.iterrows()]
+        out[key] = [b for b in bars if b]
+    if not out["1d"]:
+        raise ValueError("no candles")
+    return out
+
+
+def chart_candles(client: httpx.Client, symbol: str) -> dict[str, list]:
+    """The same bars from Yahoo's chart endpoint."""
+    out = {}
+    for key, (period, interval) in CANDLE_RANGES.items():
+        resp = client.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+                          params={"range": period, "interval": interval})
+        resp.raise_for_status()
+        result = resp.json()["chart"]["result"][0]
+        q = result["indicators"]["quote"][0]
+        bars = [_bar(t, *vals) for t, *vals in
+                zip(result.get("timestamp", []), q.get("open", []), q.get("high", []), q.get("low", []), q.get("close", []))]
+        out[key] = [b for b in bars if b]
+    if not out["1d"]:
+        raise ValueError("no candles")
+    return out
+
+
+def fetch_candles(candle_sources: list, symbol: str, previous: dict | None) -> dict | None:
+    for source in candle_sources:
+        try:
+            return source(symbol)
+        except Exception as exc:  # noqa: BLE001 - fall through to the next source
+            log(f"  candles {symbol}: {short_error(exc)}")
+    return (previous or {}).get("candles")
+
+
+def fetch_markets(quote_sources: list, markets: list[dict], previous: dict,
+                  candle_sources: list | None = None) -> list[dict]:
     """Try each quote source in turn; fall back to the last published value."""
     prev_by_symbol = {m["symbol"]: m for m in previous.get("markets", [])}
     out = []
     for m in markets:
+        if candle_sources:
+            m = {**m, "candles": fetch_candles(candle_sources, m["symbol"], prev_by_symbol.get(m["symbol"]))}
         errors = []
         for source in quote_sources:
             try:
@@ -269,7 +324,7 @@ def fetch_markets(quote_sources: list, markets: list[dict], previous: dict) -> l
         else:
             log(f"  market {m['symbol']}: {' | '.join(errors)}")
             if m["symbol"] in prev_by_symbol:
-                out.append({**prev_by_symbol[m["symbol"]], "stale": True})
+                out.append({**prev_by_symbol[m["symbol"]], **m, "stale": True})
             continue
         change = (price - prev_close) / prev_close * 100 if prev_close else None
         out.append({**m, "price": price, "change_pct": change, "history": closes,
@@ -278,7 +333,7 @@ def fetch_markets(quote_sources: list, markets: list[dict], previous: dict) -> l
 
 
 def build(config: dict, previous: dict, client: httpx.Client,
-          quote_sources: list | None = None) -> dict:
+          quote_sources: list | None = None, candle_sources: list | None = None) -> dict:
     settings = config.get("settings", {})
     max_age_h = settings.get("max_age_hours", 36)
     per_topic = settings.get("per_topic", 15)
@@ -327,7 +382,8 @@ def build(config: dict, previous: dict, client: httpx.Client,
         "generated_at": now.isoformat(),
         "topics": topics_out,
         "markets": fetch_markets(quote_sources or [yfinance_quote, lambda s: chart_quote(client, s)],
-                                 config.get("markets", []), previous),
+                                 config.get("markets", []), previous,
+                                 candle_sources or [yfinance_candles, lambda s: chart_candles(client, s)]),
         "briefing": previous.get("briefing"),
         "feeds": feed_status,
     }
@@ -356,7 +412,8 @@ def main() -> int:
         return 1 if not previous else 0
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+    # Compact: the chart candles would make an indented file several times bigger.
+    args.out.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     log(f"Wrote {args.out}")
     return 0
 

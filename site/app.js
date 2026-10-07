@@ -111,9 +111,9 @@
       const up = (m.change_pct ?? 0) >= 0;
       const chg = m.change_pct == null ? "" :
         `<span class="chg ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(m.change_pct).toFixed(2)}%</span>`;
-      return `<div class="ticker${m.stale ? " stale" : ""}" title="${m.stale ? "Last known value" : ""}">
+      return `<button class="ticker${m.stale ? " stale" : ""}" data-chart="${esc(m.symbol)}" title="${m.stale ? "Last known value · " : ""}Open the ${esc(m.label)} chart">
         <span class="t-label">${esc(m.label)}</span><span class="price">${fmtPrice(m.price)}</span>${chg}${sparkline(m.history, up)}
-      </div>`;
+      </button>`;
     }).join("")}</div>`;
   }
 
@@ -373,6 +373,7 @@
       <div><h1 class="serif">${esc(labelOf(key))}</h1>
       <p class="muted">${list.length} stories · updated ${esc(timeAgo(state.data.generated_at))}</p></div>`;
     $("#search-box").hidden = !isAll;
+    $("#topic-charts").innerHTML = isAll ? "" : window.NEWS_CHARTS?.cardsFor(key) || "";
     const b = isAll ? null : briefingFor(key);
     $("#topic-brief").innerHTML = b?.bullets?.length ? `<div class="short-version" style="--tc:${look(key).color}">
       <h3 class="label">The short version</h3><ul>${b.bullets.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
@@ -555,6 +556,8 @@
   // A short label and a plain-text description of the screen the reader has open.
   function screenContext() {
     if (!state.data) return { label: "Loading", text: "The page is still loading." };
+    const chart = window.NEWS_CHARTS?.view();
+    if (chart) return chart;
     const [view, arg] = (location.hash.slice(1) || "home").split("/");
     if (view === "signal") {
       const box = $("#front").getBoundingClientRect();

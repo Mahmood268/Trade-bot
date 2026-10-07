@@ -115,7 +115,7 @@ def main() -> int:
     briefing["generated_at"] = datetime.now(timezone.utc).isoformat()
     briefing["model"] = response.model
     data["briefing"] = briefing
-    DATA.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+    DATA.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     log(f"Briefing written ({response.usage.input_tokens} in / "
         f"{response.usage.output_tokens} out tokens)")
     return 0
