@@ -317,6 +317,10 @@ main {
   padding: 9px 18px; font-size: 17px; font-weight: 500;
 }
 .mode-chip svg { width: 20px; height: 20px; }
+/* The four mode chips share one row, no sideways scrolling. */
+#globe-modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; overflow: visible; margin: 0; padding: 2px 0; }
+#globe-modes .mode-chip { justify-content: center; gap: 5px; padding: 8px 4px; font-size: 14px; min-width: 0; }
+#globe-modes .mode-chip svg { width: 15px; height: 15px; flex-shrink: 0; }
 .mode-chip[aria-selected="true"] {
   color: var(--mc); border-color: var(--mc); background: color-mix(in srgb, var(--mc) 14%, transparent);
 }
@@ -627,3 +631,4 @@ body:has(.chat:not([hidden])) .claude-fab { display: none; }
 
 /* Ask Claude switched off (see index.html) */
 .no-chat .chat-only { display: none !important; }
+@media (max-width: 350px) { #globe-modes .mode-chip { font-size: 13px; padding-inline: 2px; } #globe-modes .mode-chip svg { display: none; } }
