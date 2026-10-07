@@ -1,6 +1,6 @@
 // Candlestick charts for the market tickers. Tap a price in the top strip (or a
 // chart card on a section page) to open one. Bars come from data.json, refreshed
-// hourly; Lightweight Charts (vendored) is loaded the first time a chart opens.
+// every few minutes; Lightweight Charts (vendored) is loaded the first time a chart opens.
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const RANGES = [
@@ -88,7 +88,7 @@
     const box = $("#chart-box");
     box.innerHTML = "";
     if (!data.length) {
-      box.innerHTML = `<p class="empty">No candles yet. They arrive with the next hourly update.</p>`;
+      box.innerHTML = `<p class="empty">No candles yet. They arrive with the next update.</p>`;
       return;
     }
     const up = css("--up"), down = css("--down");

@@ -2,7 +2,7 @@ name: Update news
 
 on:
   schedule:
-    - cron: "17 * * * *"   # hourly
+    - cron: "*/5 * * * *"   # every 5 minutes, GitHub's fastest schedule
   workflow_dispatch:
     inputs:
       force_briefing:

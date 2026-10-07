@@ -133,6 +133,9 @@ def test_topics_dedupe_and_filters():
     assert not any("bakery" in t for k in CONFIG["topics"] for t in titles(data, k))
     me = next(t for t in data["topics"] if t["key"] == "middle_east")["items"][0]
     assert me["summary"] == "Tensions rise in Tehran"  # HTML stripped
+    world = [i["title"] for i in data["world"]]
+    assert any("bakery" in t for t in world)  # untagged stories still reach the globe
+    assert len(world) == len(set(world)) and "Very old story about Trump" not in world
 
 
 def test_images():

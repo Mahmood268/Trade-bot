@@ -324,8 +324,8 @@ main {
 .mode-chip[aria-selected="true"] {
   color: var(--mc); border-color: var(--mc); background: color-mix(in srgb, var(--mc) 14%, transparent);
 }
-.globe-wrap { display: grid; place-items: center; padding: 34px 0 26px; }
-.globe { touch-action: none; cursor: grab; max-width: 100%; height: auto; user-select: none; }
+.globe-wrap { position: relative; display: grid; place-items: center; padding: 34px 0 26px; }
+.globe { touch-action: none; cursor: grab; max-width: 100%; height: auto; user-select: none; overflow: hidden; border-radius: 24px; }
 .globe:active { cursor: grabbing; }
 .ocean-a { stop-color: var(--ocean-a); }
 .ocean-b { stop-color: var(--ocean-b); }
@@ -633,3 +633,9 @@ body:has(.chat:not([hidden])) .claude-fab { display: none; }
 .no-chat .chat-only { display: none !important; }
 @media (max-width: 350px) { #globe-modes .mode-chip { font-size: 13px; padding-inline: 2px; } #globe-modes .mode-chip svg { display: none; } }
 .chart-card[hidden] { display: none; }
+.zoom-btns { position: absolute; right: 0; bottom: 26px; display: grid; gap: 6px; }
+.zoom-btns button {
+  width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text); font-size: 20px; line-height: 1; display: grid; place-items: center;
+}
+.more-news { display: block; margin: 14px 0 4px; color: var(--gold); font-weight: 600; }
