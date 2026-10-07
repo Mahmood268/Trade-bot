@@ -80,6 +80,7 @@ main {
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
   overflow-x: auto; scrollbar-width: none;
+  padding-top: env(safe-area-inset-top); /* installed app: clear the status bar */
 }
 .markets::-webkit-scrollbar { display: none; }
 .markets-inner {
@@ -139,8 +140,8 @@ main {
   font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
 }
 .pill-gold:hover { background: color-mix(in srgb, var(--gold) 20%, transparent); }
-.mark { width: 64px; height: 44px; color: var(--text); opacity: .9; }
-.head-actions { justify-self: end; display: flex; gap: 8px; }
+.mark { grid-column: 2; width: 64px; height: 44px; color: var(--text); opacity: .9; }
+.head-actions { grid-column: 3; justify-self: end; display: flex; gap: 8px; }
 
 .home-title { text-align: center; margin: 28px 0 52px; }
 .home-title h1 { font-size: clamp(30px, 6vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
@@ -316,6 +317,10 @@ main {
   padding: 9px 18px; font-size: 17px; font-weight: 500;
 }
 .mode-chip svg { width: 20px; height: 20px; }
+/* The four mode chips share one row, no sideways scrolling. */
+#globe-modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; overflow: visible; margin: 0; padding: 2px 0; }
+#globe-modes .mode-chip { justify-content: center; gap: 5px; padding: 8px 4px; font-size: 14px; min-width: 0; }
+#globe-modes .mode-chip svg { width: 15px; height: 15px; flex-shrink: 0; }
 .mode-chip[aria-selected="true"] {
   color: var(--mc); border-color: var(--mc); background: color-mix(in srgb, var(--mc) 14%, transparent);
 }
@@ -623,3 +628,7 @@ body:has(.chat:not([hidden])) .claude-fab { display: none; }
   .row { gap: 14px; padding: 14px 16px; font-size: 17px; }
   .feeds { padding-left: 20px; }
 }
+
+/* Ask Claude switched off (see index.html) */
+.no-chat .chat-only { display: none !important; }
+@media (max-width: 350px) { #globe-modes .mode-chip { font-size: 13px; padding-inline: 2px; } #globe-modes .mode-chip svg { display: none; } }

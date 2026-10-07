@@ -6,12 +6,21 @@
   <title>Daily Brief</title>
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#121318">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Daily Brief">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400&display=swap">
   <link rel="stylesheet" href="style.css">
   <script>
     try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+    // Ask Claude is switched off for now. Delete this line to bring it back.
+    document.documentElement.classList.add("no-chat");
   </script>
 </head>
 <body>
@@ -21,7 +30,7 @@
     <!-- Home: greeting and topic tiles -->
     <section id="view-home" class="view" data-view="home">
       <header class="home-head">
-        <button class="pill-gold" data-open-chat><span aria-hidden="true">✦</span> Ask Claude</button>
+        <button class="pill-gold chat-only" data-open-chat><span aria-hidden="true">✦</span> Ask Claude</button>
         <svg class="mark" viewBox="0 0 48 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
           <path d="M6 26h36M14 26a10 10 0 0 1 20 0M24 10V5M12.7 14.7 9.2 11.2M35.3 14.7l3.5-3.5M8.5 20.5H4M43.5 20.5H39"/>
         </svg>
@@ -87,7 +96,7 @@
     <!-- Settings -->
     <section id="view-settings" class="view" data-view="settings" hidden>
       <h1 class="settings-title">Settings</h1>
-      <button class="promo" data-open-chat>
+      <button class="promo chat-only" data-open-chat>
         <span class="promo-icon" aria-hidden="true">✦</span>
         <span class="promo-text"><strong>Ask Claude</strong><span>Questions and "what if" forecasts on today's news</span></span>
         <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -121,8 +130,8 @@
         </label>
       </div>
 
-      <h3 class="group-label">Ask Claude</h3>
-      <div class="group">
+      <h3 class="group-label chat-only">Ask Claude</h3>
+      <div class="group chat-only">
         <button class="row" data-chat-settings>
           <span class="row-icon" style="--c1:#e0a82e;--c2:#c78a16"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg></span>
           <span class="row-main">API key &amp; model<small id="key-state" class="muted"></small></span>
@@ -175,7 +184,7 @@
   </nav>
 
   <!-- Ask Claude from any screen -->
-  <button id="claude-fab" class="claude-fab" data-open-chat title="Ask Claude about this screen" aria-label="Ask Claude about this screen">
+  <button id="claude-fab" class="claude-fab chat-only" data-open-chat title="Ask Claude about this screen" aria-label="Ask Claude about this screen">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c.5 4.6 2.4 6.5 7 7-4.6.5-6.5 2.4-7 7-.5-4.6-2.4-6.5-7-7 4.6-.5 6.5-2.4 7-7z"/><path d="M19 15.5c.2 1.8.9 2.5 2.7 2.7-1.8.2-2.5.9-2.7 2.7-.2-1.8-.9-2.5-2.7-2.7 1.8-.2 2.5-.9 2.7-2.7z"/></svg>
   </button>
 
@@ -194,7 +203,7 @@
       <p id="chart-ohlc" class="chart-ohlc muted"></p>
       <div id="chart-box" class="chart-box"></div>
       <p class="chart-note muted">Candles update every hour. <a id="chart-live" href="#" target="_blank" rel="noopener noreferrer">Live chart on Yahoo Finance ↗</a></p>
-      <button id="chart-ask" class="primary wide">✦ Ask Claude about this chart</button>
+      <button id="chart-ask" class="primary wide chat-only">✦ Ask Claude about this chart</button>
     </div>
   </div>
 

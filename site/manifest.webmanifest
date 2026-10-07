@@ -1,0 +1,29 @@
+{
+  "name": "Daily Brief",
+  "short_name": "Daily Brief",
+  "description": "Your personal news dashboard",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#121318",
+  "theme_color": "#121318",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

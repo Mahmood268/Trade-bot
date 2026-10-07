@@ -83,12 +83,17 @@
 
   const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+  // Older iPhones (before iOS 16.4) reject look-behind like (?<!south ); drop it there.
+  function regex(src, flags) {
+    try { return new RegExp(src, flags); } catch { return new RegExp(src.replace(/\(\?<[!=][^)]*\)/g, ""), flags); }
+  }
+
   function matchers(name) {
     const a = ALIASES[name] || {};
     const words = [...(a.words || [])];
     if (!a.skipName && !/\./.test(name)) words.push(reEscape(name));
     const res = [];
-    if (words.length) res.push(new RegExp(`\\b(${words.join("|")})\\b`, "i"));
+    if (words.length) res.push(regex(`\\b(${words.join("|")})\\b`, "i"));
     if (a.cs) res.push(new RegExp(`(^|[^\\w.])(${a.cs.join("|")})(?![\\w])`));
     return res;
   }
@@ -316,7 +321,7 @@
           <span class="story-meta"><span class="dot"></span>${esc(look(key).short)} · ${esc(item.source)} · ${esc(timeAgo(item.published))}</span>
           <span class="serif">${esc(item.title)}</span>
         </a>`).join("")}</div>
-      <button class="primary wide" data-country-brief="${esc(c.display)}">✦ Ask Claude about ${esc(c.display)}</button>`;
+      <button class="primary wide chat-only" data-country-brief="${esc(c.display)}">✦ Ask Claude about ${esc(c.display)}</button>`;
     $("#sheet").hidden = false;
   }
 
