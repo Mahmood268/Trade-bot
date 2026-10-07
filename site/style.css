@@ -648,3 +648,26 @@ body:has(.chat:not([hidden])) .claude-fab { display: none; }
 .tv-chart { height: min(62vh, 520px); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--card); }
 .tradingview-widget-copyright { font-size: 12px; text-align: right; padding: 8px 12px 0; }
 .tradingview-widget-copyright a { color: var(--muted); }
+
+/* Story page: read a story without leaving the site */
+.story-page {
+  position: fixed; inset: 0; z-index: 45; overflow-y: auto; background: var(--bg);
+  padding: env(safe-area-inset-top) 20px calc(40px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+body.story-open { overflow: hidden; }
+.story-bar { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 14px 0 10px; max-width: 720px; margin: 0 auto; }
+.story-bar .back { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.story-article { max-width: 720px; margin: 0 auto; }
+.story-article .topic-pill { margin-top: 8px; }
+.story-headline { font-size: clamp(28px, 7vw, 40px); line-height: 1.15; margin: 14px 0 10px; }
+.story-byline { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+.story-hero { width: 100%; max-height: 420px; object-fit: cover; border-radius: 18px; margin-bottom: 18px; display: block; }
+.story-lede { font-size: 20px; line-height: 1.55; margin: 0 0 26px; }
+.story-related-label { margin-top: 8px; }
+.story-related { display: grid; gap: 10px; margin: 10px 0 26px; }
+.story-related-item { display: grid; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--text); text-decoration: none; }
+.story-related-item .serif { font-size: 17px; line-height: 1.3; }
+.story-credit { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+.story-credit a { color: var(--muted); }
+.story[data-story] { cursor: pointer; }

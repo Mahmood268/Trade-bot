@@ -351,7 +351,7 @@
     $("#sheet-title").textContent = c.display;
     $("#sheet-body").innerHTML = `<p class="muted">${all.length ? `${all.length} ${all.length === 1 ? "story" : "stories"} today` : "No stories mention it today."}</p>
       <div class="sheet-list">${all.map(({ item, key }) => `
-        <a class="sheet-story" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" style="--tc:${look(key).color}">
+        <a class="sheet-story" href="#" data-story="${esc(item.link)}" style="--tc:${look(key).color}">
           <span class="story-meta"><span class="dot"></span>${esc(look(key).short)} · ${esc(item.source)} · ${esc(timeAgo(item.published))}</span>
           <span class="serif">${esc(item.title)}</span>
         </a>`).join("")}</div>
