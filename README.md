@@ -5,7 +5,7 @@ Reuters, AP, The Guardian, CNN, CNBC, MarketWatch, Yahoo Finance, Kitco,
 Middle East outlets and AI news sites into one page, with:
 
 - **Five sections:** Trump & US Politics · Middle East · Stock Market · Gold & Commodities · AI
-- **Live market strip:** S&P 500, Nasdaq, Dow, Gold, Silver, Oil, Bitcoin
+- **Live market strip:** S&P 500, Gold, Nvidia, Marvell
 - **AI daily briefing:** Claude summarizes each section about twice a day
 - **Ask Claude chat:** ask questions or "what if" forecasts. Claude sees today's
   headlines and prices and can search the web.
