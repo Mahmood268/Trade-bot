@@ -79,7 +79,12 @@ CONFIG = {
 
 def run(previous=None):
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        return fetch_news.build(CONFIG, previous or {}, client)
+        return fetch_news.build(CONFIG, previous or {}, client,
+                                quote_sources=[failing_source, lambda s: fetch_news.chart_quote(client, s)])
+
+
+def failing_source(symbol):
+    raise RuntimeError("primary source down")
 
 
 def titles(data, key):

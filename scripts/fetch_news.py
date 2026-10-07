@@ -151,34 +151,63 @@ def score(item: dict, now: datetime) -> float:
     return len(item["also"]) * 1.0 - age_h / 12.0
 
 
-def fetch_markets(client: httpx.Client, markets: list[dict], previous: dict) -> list[dict]:
+def yfinance_quote(symbol: str) -> tuple[float, float | None, list[float]]:
+    """Price, previous close and recent daily closes via yfinance.
+
+    yfinance handles Yahoo's cookie/crumb handshake, which plain requests from
+    cloud runners (e.g. GitHub Actions) get rate-limited without.
+    """
+    import yfinance as yf
+
+    hist = yf.Ticker(symbol).history(period="5d", interval="1d", auto_adjust=False)
+    closes = [float(c) for c in hist["Close"].dropna()]
+    if not closes:
+        raise ValueError("no data")
+    return closes[-1], closes[-2] if len(closes) >= 2 else None, closes
+
+
+def chart_quote(client: httpx.Client, symbol: str) -> tuple[float, float | None, list[float]]:
+    """Price, previous close and recent daily closes from Yahoo's chart endpoint."""
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    resp = client.get(url, params={"range": "5d", "interval": "1d"})
+    resp.raise_for_status()
+    result = resp.json()["chart"]["result"][0]
+    meta = result["meta"]
+    closes = [c for c in result["indicators"]["quote"][0].get("close", []) if c is not None]
+    price = meta.get("regularMarketPrice") or (closes[-1] if closes else None)
+    prev_close = meta.get("previousClose")
+    if prev_close is None and len(closes) >= 2:
+        prev_close = closes[-2]
+    if price is None:
+        raise ValueError("no price")
+    return price, prev_close, closes
+
+
+def fetch_markets(quote_sources: list, markets: list[dict], previous: dict) -> list[dict]:
+    """Try each quote source in turn; fall back to the last published value."""
     prev_by_symbol = {m["symbol"]: m for m in previous.get("markets", [])}
     out = []
     for m in markets:
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{m['symbol']}"
-        try:
-            resp = client.get(url, params={"range": "5d", "interval": "1d"})
-            resp.raise_for_status()
-            result = resp.json()["chart"]["result"][0]
-            meta = result["meta"]
-            closes = [c for c in result["indicators"]["quote"][0].get("close", []) if c is not None]
-            price = meta.get("regularMarketPrice") or (closes[-1] if closes else None)
-            prev_close = meta.get("previousClose")
-            if prev_close is None and len(closes) >= 2:
-                prev_close = closes[-2]
-            if price is None:
-                raise ValueError("no price")
-            change = (price - prev_close) / prev_close * 100 if prev_close else None
-            out.append({**m, "price": price, "change_pct": change, "history": closes,
-                        "stale": False})
-        except Exception as exc:  # noqa: BLE001
-            log(f"  market {m['symbol']}: {short_error(exc)}")
+        errors = []
+        for source in quote_sources:
+            try:
+                price, prev_close, closes = source(m["symbol"])
+                break
+            except Exception as exc:  # noqa: BLE001
+                errors.append(short_error(exc))
+        else:
+            log(f"  market {m['symbol']}: {' | '.join(errors)}")
             if m["symbol"] in prev_by_symbol:
                 out.append({**prev_by_symbol[m["symbol"]], "stale": True})
+            continue
+        change = (price - prev_close) / prev_close * 100 if prev_close else None
+        out.append({**m, "price": price, "change_pct": change, "history": closes,
+                    "stale": False})
     return out
 
 
-def build(config: dict, previous: dict, client: httpx.Client) -> dict:
+def build(config: dict, previous: dict, client: httpx.Client,
+          quote_sources: list | None = None) -> dict:
     settings = config.get("settings", {})
     max_age_h = settings.get("max_age_hours", 36)
     per_topic = settings.get("per_topic", 15)
@@ -223,7 +252,8 @@ def build(config: dict, previous: dict, client: httpx.Client) -> dict:
     return {
         "generated_at": now.isoformat(),
         "topics": topics_out,
-        "markets": fetch_markets(client, config.get("markets", []), previous),
+        "markets": fetch_markets(quote_sources or [yfinance_quote, lambda s: chart_quote(client, s)],
+                                 config.get("markets", []), previous),
         "briefing": previous.get("briefing"),
         "feeds": feed_status,
     }
