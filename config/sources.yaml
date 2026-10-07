@@ -146,7 +146,7 @@ feeds:
   # --- AI / tech ---
   - {name: "TechCrunch", url: "https://techcrunch.com/category/artificial-intelligence/feed/", topics: [ai]}
   - {name: "The Verge", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", topics: [ai]}
-  - {name: "VentureBeat", url: "https://news.google.com/rss/search?q=site:venturebeat.com/ai+when:1d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
+  - {name: "VentureBeat", url: "https://news.google.com/rss/search?q=site:venturebeat.com+AI+when:2d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
   - {name: "MIT Tech Review", url: "https://www.technologyreview.com/topic/artificial-intelligence/feed", topics: [ai]}
   - {name: "Anthropic", url: "https://news.google.com/rss/search?q=site:anthropic.com/news+when:7d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
   - {name: "OpenAI", url: "https://openai.com/news/rss.xml", topics: [ai]}
