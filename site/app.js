@@ -1,10 +1,42 @@
-// Renders data.json: market strip, AI briefing, topic tabs and story cards.
+// Renders data.json as four screens: Home (topic tiles), Signal (front page
+// and daily scan), Globe (globe.js) and Settings, plus a page per topic.
 (() => {
   const $ = (sel) => document.querySelector(sel);
-  const state = { data: null, tab: "overview", query: "" };
+  const $$ = (sel) => [...document.querySelectorAll(sel)];
+  const state = { data: null, query: "", frontIndex: 0 };
+  const FRONT_PAGE_SIZE = 15;
+
+  const store = {
+    get(key, fallback = null) { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch {} },
+    json(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } },
+  };
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // Look of each topic: tile color and icon. Unknown topics get the default.
+  const ICONS = {
+    capitol: '<path d="M12 3 3 8h18zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    chart: '<path d="M4 4v16h16"/><path d="m7 14 4-4 3 3 5-6"/>',
+    bars: '<path d="M2.5 20 5 14h6.5l2 6zM10.5 20l2-6H19l2.5 6zM6.5 12.5 9 7h6l2.5 5.5z"/>',
+    chip: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 9.5h5v5h-5zM9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
+    paper: '<path d="M4 5h13v14H6a2 2 0 0 1-2-2zM17 8h3v9a2 2 0 0 1-2 2M7 9h7M7 12h7M7 15h4"/>',
+  };
+  const LOOKS = {
+    trump: { short: "US", color: "#e5534b", icon: "capitol" },
+    middle_east: { short: "Middle East", color: "#f0883e", icon: "globe" },
+    markets: { short: "Markets", color: "#3fa45b", icon: "chart" },
+    gold: { short: "Gold", color: "#e9b03b", icon: "bars" },
+    ai: { short: "AI", color: "#3fb8d0", icon: "chip" },
+    all: { short: "All", color: "#4a8fe7", icon: "paper" },
+  };
+  const look = (key) => LOOKS[key] || { short: labelOf(key), color: "#8b8b95", icon: "paper" };
+  const icon = (key, cls = "") =>
+    `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[look(key).icon]}</svg>`;
+
+  // ---------- helpers ----------
 
   function timeAgo(iso) {
     if (!iso) return "";
@@ -15,14 +47,58 @@
     return h < 48 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
   }
 
+  const today = () => new Date().toLocaleDateString("en-CA");
+  const partOfDay = () => {
+    const h = new Date().getHours();
+    return h < 12 ? "morning" : h < 18 ? "afternoon" : "evening";
+  };
+
   function fmtPrice(p) {
     if (p == null) return "—";
     return p.toLocaleString(undefined, { maximumFractionDigits: p >= 1000 ? 0 : 2 });
   }
 
+  function labelOf(key) {
+    if (key === "all") return "All Stories";
+    return state.data?.topics.find((t) => t.key === key)?.label || "";
+  }
+
+  function topicOf(key) { return state.data.topics.find((t) => t.key === key); }
+
+  // Read/scanned progress resets every day.
+  function daily(key) {
+    const saved = store.json(key, null);
+    return saved && saved.date === today() ? new Set(saved.items) : new Set();
+  }
+  function saveDaily(key, set) { store.set(key, JSON.stringify({ date: today(), items: [...set] })); }
+  let seen = daily("seen");
+  let scanned = daily("scanned");
+
+  function myTopics() {
+    const keys = state.data.topics.map((t) => t.key);
+    const saved = store.json("my-topics", null);
+    const picked = Array.isArray(saved) ? saved.filter((k) => keys.includes(k)) : keys;
+    return picked.length ? picked : keys;
+  }
+
+  function briefingFor(key) {
+    const label = labelOf(key);
+    return state.data.briefing?.sections?.find((s) => s.topic === label) || null;
+  }
+
+  function outlets(item) { return [item.source, ...(item.also || [])]; }
+
+  function askAbout(item) {
+    window.dispatchEvent(new CustomEvent("ask-claude", { detail: {
+      text: `Explain this headline and what could happen next (scenarios + likely market impact):\n"${item.title}" (${item.source})`,
+    } }));
+  }
+
+  // ---------- markets ----------
+
   function sparkline(values, up) {
     if (!values || values.length < 2) return "";
-    const w = 40, h = 16, min = Math.min(...values), max = Math.max(...values);
+    const w = 36, h = 14, min = Math.min(...values), max = Math.max(...values);
     const span = max - min || 1;
     const pts = values.map((v, i) =>
       `${(i / (values.length - 1)) * w},${h - 2 - ((v - min) / span) * (h - 4)}`).join(" ");
@@ -31,164 +107,346 @@
   }
 
   function renderMarkets(markets) {
-    $("#markets").innerHTML = (markets || []).map((m) => {
+    $("#markets").innerHTML = `<div class="markets-inner">${(markets || []).map((m) => {
       const up = (m.change_pct ?? 0) >= 0;
       const chg = m.change_pct == null ? "" :
-        `<span class="chg ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(m.change_pct).toFixed(2)}%</span>`;
-      return `<div class="ticker${m.stale ? " stale" : ""}" title="${m.stale ? "Last known value" : ""}">
-        <span class="label">${esc(m.label)}</span><span class="price">${fmtPrice(m.price)}</span>${chg}${sparkline(m.history, up)}
-      </div>`;
+        `<span class="chg ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(m.change_pct).toFixed(2)}%</span>`;
+      return `<button class="ticker${m.stale ? " stale" : ""}" data-chart="${esc(m.symbol)}" title="${m.stale ? "Last known value · " : ""}Open the ${esc(m.label)} chart">
+        <span class="t-label">${esc(m.label)}</span><span class="price">${fmtPrice(m.price)}</span>${chg}${sparkline(m.history, up)}
+      </button>`;
+    }).join("")}</div>`;
+  }
+
+  // ---------- Home ----------
+
+  function renderHome() {
+    const tiles = [...state.data.topics.map((t) => t.key), "all"];
+    $("#tiles").innerHTML = tiles.map((key) => {
+      const count = key === "all" ? allStories().length : topicOf(key).items.length;
+      return `<a class="tile" href="#topic/${esc(key)}" style="--tc:${look(key).color}">
+        <span class="tile-icon">${icon(key)}</span>
+        <span class="tile-label">${esc(labelOf(key))}</span>
+        <span class="tile-count">${count} ${count === 1 ? "story" : "stories"}</span>
+      </a>`;
     }).join("");
   }
 
-  function renderBriefing(b) {
-    const el = $("#briefing");
-    if (!b) { el.hidden = true; return; }
-    el.hidden = false;
-    const topicKey = (label) => state.data.topics.find((t) => t.label === label)?.key || "";
-    el.innerHTML = `
-      <summary>
-        <span class="spark" aria-hidden="true">✦</span>
-        <span class="lede">
-          <span class="kicker">Today in 30 seconds · ${esc(timeAgo(b.generated_at))}</span>
-          <p>${esc(b.headline)}</p>
-        </span>
-        <span class="toggle"><span class="more">Read briefing ↓</span><span class="less">Close ↑</span></span>
-      </summary>
-      <div class="briefing-body">
-        <div class="briefing-grid">${(b.sections || []).map((s) => `
-          <div data-topic="${esc(topicKey(s.topic))}"><h3><span class="dot"></span>${esc(s.topic)}</h3>
-          <ul>${s.bullets.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}
-        </div>
-        ${b.watch_next?.length ? `<div class="watch"><h3>👀 Watch next</h3><ul>${
-          b.watch_next.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
-      </div>`;
-  }
+  // ---------- Signal ----------
 
-  function matches(item) {
-    if (!state.query) return true;
-    const q = state.query.toLowerCase();
-    return `${item.title} ${item.summary} ${item.source}`.toLowerCase().includes(q);
-  }
-
-  function labelOf(key) {
-    return state.data.topics.find((t) => t.key === key)?.label || "";
-  }
-
-  function thumbHtml(item) {
-    const link = esc(item.link);
-    if (item.image) {
-      return `<a class="thumb" href="${link}" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">
-        <img src="${esc(item.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-source="${esc(item.source)}"></a>`;
+  // Up to 15 stories across the reader's topics, taking each topic's best in turn.
+  function frontPage() {
+    const lists = myTopics().map((k) => topicOf(k).items.map((i) => ({ item: i, key: k })));
+    const out = [], links = new Set();
+    for (let rank = 0; out.length < FRONT_PAGE_SIZE && lists.some((l) => l.length > rank); rank++) {
+      for (const l of lists) {
+        const entry = l[rank];
+        if (entry && !links.has(entry.item.link) && out.length < FRONT_PAGE_SIZE) {
+          links.add(entry.item.link);
+          out.push(entry);
+        }
+      }
     }
-    return `<a class="thumb fallback" href="${link}" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">
-      <span>${esc(item.source)}</span></a>`;
+    return out;
   }
 
-  // One story card. `topic` decides the color; `opts.summary` shows the snippet.
-  function storyHtml(item, topic, opts = {}) {
-    const extra = (item.also || []).length;
-    return `<article class="story${opts.hero ? " hero" : ""}" data-topic="${esc(topic)}">
-      ${thumbHtml(item)}
-      <div class="body">
-        ${opts.kicker ? `<span class="kicker">${esc(labelOf(topic))}</span>` : ""}
-        <a class="title" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>
-        ${opts.summary && item.summary ? `<p class="summary">${esc(item.summary)}</p>` : ""}
-        <div class="meta">
-          <span class="source">${esc(item.source)}</span>
-          ${extra ? `<span title="${esc(item.also.join(", "))}">+${extra}</span>` : ""}
-          <span class="sep">·</span><span>${esc(timeAgo(item.published))}</span>
-          <button class="ask-btn" data-title="${esc(item.title)}" data-source="${esc(item.source)}" title="Ask Claude about this">✦ Ask</button>
-        </div>
+  function frontCard({ item, key }, idx) {
+    const lk = look(key);
+    const n = outlets(item).length;
+    return `<article class="front-card" data-idx="${idx}" data-link="${esc(item.link)}" style="--tc:${lk.color}">
+      <div class="card-top">
+        <span class="topic-pill">${icon(key)}${esc(lk.short)}</span>
+        <span class="seen-mark">✓ Seen</span>
       </div>
+      <a class="card-title serif" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" data-read>${esc(item.title)}</a>
+      ${item.summary ? `<p class="card-summary">${esc(item.summary)}</p>` : ""}
+      <p class="card-meta">${esc(item.source)}${n > 1 ? ` <span title="${esc(outlets(item).join(", "))}">+${n - 1} more</span>` : ""} · ${esc(timeAgo(item.published))}</p>
+      <button class="card-foot" data-analyze="${idx}">
+        <span>Get Claude's analysis</span><span class="badge">✦ AI</span>
+        <span class="round-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </button>
     </article>`;
   }
 
-  // Lead story: the most widely reported story, preferring one with a photo.
-  function pickHero(items) {
-    const pool = items.slice(0, 8);
-    const rank = (i) => (i.also?.length || 0) * 2 + (i.image ? 3 : 0);
-    return pool.reduce((best, i) => (rank(i) > rank(best) ? i : best), pool[0]);
+  let front = [];
+  function renderFront() {
+    front = frontPage();
+    $("#front").innerHTML = front.length ? front.map(frontCard).join("")
+      : `<p class="empty">No stories in your topics right now.</p>`;
+    $("#dots").innerHTML = front.map((_, i) => `<span data-dot="${i}"></span>`).join("");
+    $("#front").scrollLeft = 0;
+    state.frontIndex = 0;
+    updateSeen();
+    observeFront();
   }
 
-  function renderOverview(el) {
-    const topics = state.data.topics;
-    const leads = topics.map((t) => t.items[0] && { ...t.items[0], _topic: t.key }).filter(Boolean);
-    const hero = pickHero(leads);
-    const used = new Set([hero?.link]);
-    el.innerHTML = (hero ? storyHtml(hero, hero._topic, { hero: true, summary: true, kicker: true }) : "") +
-      topics.map((t) => {
-        const items = t.items.filter((i) => !used.has(i.link)).slice(0, 4);
-        items.forEach((i) => used.add(i.link));
-        if (!items.length) return "";
-        return `<section class="section" data-topic="${esc(t.key)}">
-          <div class="section-head">
-            <h2><span class="dot"></span>${esc(t.label)}</h2>
-            <button class="see-all" data-tab="${esc(t.key)}">See all →</button>
-          </div>
-          <div class="grid">${items.map((i) => storyHtml(i, t.key)).join("")}</div>
-        </section>`;
-      }).join("");
+  function updateSeen() {
+    $$(".front-card").forEach((c) => c.classList.toggle("is-seen", seen.has(c.dataset.link)));
+    const n = front.filter((f) => seen.has(f.item.link)).length;
+    $("#seen-count").textContent = front.length ? `${n} of ${front.length} seen` : "";
+    $$("#dots span").forEach((d, i) => d.classList.toggle("on", i === state.frontIndex));
+    updateCaughtUp();
   }
 
-  function renderTopic(el, t) {
-    const hero = pickHero(t.items);
-    const rest = t.items.filter((i) => i !== hero);
-    el.innerHTML = hero
-      ? storyHtml(hero, t.key, { hero: true, summary: true, kicker: true }) +
-        `<section class="section"><div class="grid three">${
-          rest.map((i) => storyHtml(i, t.key, { summary: true })).join("")}</div></section>`
-      : `<p class="empty">No stories right now.</p>`;
+  function markSeen(link) {
+    if (!link || seen.has(link)) return;
+    seen.add(link);
+    saveDaily("seen", seen);
+    updateSeen();
   }
 
-  function renderSearch(el) {
-    const seen = new Set();
-    const results = [];
+  // A card counts as seen once it has been mostly on screen for a moment.
+  let frontObserver = null;
+  function observeFront() {
+    frontObserver?.disconnect();
+    const timers = new Map();
+    frontObserver = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const card = e.target;
+        if (e.isIntersecting && e.intersectionRatio > 0.6) {
+          if (card.parentElement.scrollWidth > card.parentElement.clientWidth) {
+            state.frontIndex = Number(card.dataset.idx);
+            updateSeen();
+          }
+          timers.set(card, setTimeout(() => markSeen(card.dataset.link), 1500));
+        } else {
+          clearTimeout(timers.get(card));
+        }
+      }
+    }, { root: $("#front"), threshold: [0, 0.6, 1] });
+    $$(".front-card").forEach((c) => frontObserver.observe(c));
+  }
+
+  function renderChips() {
+    const mine = new Set(myTopics());
+    $("#topic-chips").innerHTML = state.data.topics.map((t) =>
+      `<button class="chip-toggle" data-topic-toggle="${esc(t.key)}" aria-pressed="${mine.has(t.key)}">${esc(look(t.key).short)}</button>`
+    ).join("");
+  }
+
+  function renderScan() {
+    const keys = myTopics();
+    $("#scan").innerHTML = keys.map((key) => {
+      const t = topicOf(key);
+      const b = briefingFor(key);
+      const bullets = b?.bullets?.length ? b.bullets
+        : t.items.slice(0, 3).map((i) => `${i.title} (${i.source})`);
+      return `<details class="scan-item${scanned.has(key) ? " done" : ""}" data-scan="${esc(key)}" style="--tc:${look(key).color}">
+        <summary>
+          <span class="scan-icon">${icon(key)}</span>
+          <span class="scan-label">${esc(t.label)}</span>
+          <span class="scan-check" aria-label="Scanned">✓</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="scan-body">
+          ${bullets.length ? `<ul>${bullets.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="muted">Nothing new here today.</p>`}
+          <a class="see-all" href="#topic/${esc(key)}">All ${t.items.length} ${esc(t.label)} stories →</a>
+        </div>
+      </details>`;
+    }).join("");
+    const watch = state.data.briefing?.watch_next || [];
+    $("#watch").hidden = !watch.length;
+    $("#watch").innerHTML = watch.length ? `<h3 class="label">Watch next</h3><ul>${
+      watch.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+    updateScanCount();
+  }
+
+  function updateScanCount() {
+    const keys = myTopics();
+    const n = keys.filter((k) => scanned.has(k)).length;
+    $("#scan-count").textContent = `${n} of ${keys.length} scanned`;
+    updateCaughtUp();
+  }
+
+  function updateCaughtUp() {
+    if (!state.data) return;
+    const stories = front.filter((f) => !seen.has(f.item.link)).length;
+    const topics = myTopics().filter((k) => !scanned.has(k)).length;
+    const parts = [];
+    if (stories) parts.push(`${stories} ${stories === 1 ? "story" : "stories"}`);
+    if (topics) parts.push(`${topics} ${topics === 1 ? "topic" : "topics"}`);
+    $("#caught-up").textContent = parts.length
+      ? `${parts.join(" and ")} until you're caught up.` : "You're all caught up.";
+  }
+
+  function renderSignal() {
+    $("#greeting").textContent = `Good ${partOfDay()}.`;
+    $("#signal-date").textContent = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    $("#brief-title").textContent = `${partOfDay()[0].toUpperCase()}${partOfDay().slice(1)} brief`;
+    renderChips();
+    renderFront();
+    renderScan();
+    if (!speech.playing) speech.reset();
+  }
+
+  // ---------- read-aloud brief ----------
+
+  const speech = {
+    lines: [], idx: 0, playing: false,
+    supported: "speechSynthesis" in window,
+    script() {
+      const d = state.data, b = d.briefing, lines = [`Good ${partOfDay()}. Here is your brief.`];
+      if (b?.headline) lines.push(b.headline);
+      for (const key of myTopics()) {
+        const t = topicOf(key), sec = briefingFor(key);
+        const items = sec?.bullets?.length ? sec.bullets
+          : t.items.slice(0, 2).map((i) => `${i.source} reports: ${i.title}.`);
+        if (!items.length) continue;
+        lines.push(`${t.label}.`, ...items);
+      }
+      if (b?.watch_next?.length) lines.push("What to watch next.", ...b.watch_next);
+      const m = d.markets || [];
+      if (m.length) {
+        lines.push(`Markets: ${m.filter((x) => x.change_pct != null).map((x) =>
+          `${x.label} ${x.change_pct >= 0 ? "up" : "down"} ${Math.abs(x.change_pct).toFixed(1)} percent`).join(", ")}.`);
+      }
+      return lines;
+    },
+    reset() {
+      if (this.supported) speechSynthesis.cancel();
+      this.lines = []; this.idx = 0; this.playing = false;
+      this.ui(this.supported ? "Ready" : "Read-aloud isn't supported in this browser");
+    },
+    speakCurrent() {
+      speechSynthesis.cancel();
+      if (this.idx >= this.lines.length) { this.playing = false; this.idx = 0; this.ui("Finished"); return; }
+      const u = new SpeechSynthesisUtterance(this.lines[this.idx]);
+      u.rate = Number(store.get("speech-rate", "1"));
+      const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === store.get("speech-voice"));
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
+      u.onend = () => { if (this.playing && u === this.current) { this.idx++; this.speakCurrent(); } };
+      this.current = u;
+      speechSynthesis.speak(u);
+      this.ui("Playing");
+    },
+    toggle() {
+      if (!this.supported) return;
+      if (this.playing) { this.playing = false; speechSynthesis.cancel(); this.ui("Paused"); return; }
+      if (!this.lines.length) this.lines = this.script();
+      this.playing = true;
+      this.speakCurrent();
+    },
+    skip(step) {
+      if (!this.supported) return;
+      if (!this.lines.length) this.lines = this.script();
+      this.idx = Math.max(0, Math.min(this.lines.length - 1, this.idx + step));
+      if (this.playing) this.speakCurrent(); else this.ui("Paused");
+    },
+    ui(status) {
+      $("#brief-status").textContent = status;
+      $("#player").classList.toggle("playing", this.playing);
+      const total = this.lines.length || 1;
+      $("#brief-progress").style.width = `${(this.lines.length ? this.idx / total : 0) * 100}%`;
+    },
+  };
+
+  // ---------- topic page ----------
+
+  function allStories() {
+    const seenLinks = new Set(), out = [];
     for (const t of state.data.topics) {
       for (const i of t.items) {
-        if (matches(i) && !seen.has(i.link)) { seen.add(i.link); results.push([i, t.key]); }
+        if (!seenLinks.has(i.link)) { seenLinks.add(i.link); out.push({ item: i, key: t.key }); }
       }
     }
-    el.innerHTML = `<section class="section"><div class="section-head"><h2>${results.length} result${
-      results.length === 1 ? "" : "s"} for “${esc(state.query)}”</h2></div>${
-      results.length ? `<div class="grid">${results.map(([i, k]) => storyHtml(i, k, { kicker: true })).join("")}</div>`
-        : `<p class="empty">Nothing matches. Try another word.</p>`}</section>`;
+    return out.sort((a, b) => (b.item.published || "").localeCompare(a.item.published || ""));
   }
 
-  function renderContent() {
-    const el = $("#content");
-    if (state.query) return renderSearch(el);
-    if (state.tab === "overview") return renderOverview(el);
-    renderTopic(el, state.data.topics.find((x) => x.key === state.tab));
+  function storyRow({ item, key }) {
+    const n = outlets(item).length;
+    const img = item.image
+      ? `<img src="${esc(item.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : "";
+    return `<article class="story" style="--tc:${look(key).color}">
+      <div class="story-text">
+        <p class="story-meta"><span class="dot"></span>${esc(look(key).short)} · ${esc(item.source)}${n > 1 ? ` +${n - 1}` : ""} · ${esc(timeAgo(item.published))}</p>
+        <a class="story-title serif" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>
+        ${item.summary ? `<p class="story-summary">${esc(item.summary)}</p>` : ""}
+        <button class="ask-btn" data-ask-link="${esc(item.link)}">✦ Ask Claude</button>
+      </div>
+      ${img ? `<a class="story-thumb" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">${img}</a>` : ""}
+    </article>`;
   }
 
-  function renderTabs() {
-    const tabs = [{ key: "overview", label: "Top stories" }, ...state.data.topics];
-    $("#tabs").innerHTML = tabs.map((t) =>
-      `<button class="tab" role="tab" data-tab="${esc(t.key)}" data-topic="${esc(t.key)}" aria-selected="${
-        !state.query && t.key === state.tab}">${t.key === "overview" ? "" : '<span class="dot"></span>'}${esc(t.label)}</button>`
-    ).join("");
+  function renderTopicPage(key) {
+    const isAll = key === "all";
+    const list = isAll ? allStories() : (topicOf(key)?.items || []).map((i) => ({ item: i, key }));
+    $("#topic-head").innerHTML = `<span class="tile-icon" style="--tc:${look(key).color}">${icon(key)}</span>
+      <div><h1 class="serif">${esc(labelOf(key))}</h1>
+      <p class="muted">${list.length} stories · updated ${esc(timeAgo(state.data.generated_at))}</p></div>`;
+    $("#search-box").hidden = !isAll;
+    $("#topic-charts").innerHTML = isAll ? "" : window.NEWS_CHARTS?.cardsFor(key) || "";
+    const b = isAll ? null : briefingFor(key);
+    $("#topic-brief").innerHTML = b?.bullets?.length ? `<div class="short-version" style="--tc:${look(key).color}">
+      <h3 class="label">The short version</h3><ul>${b.bullets.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
+    renderTopicList(list);
   }
 
-  function setTab(key) {
-    state.tab = key;
-    state.query = "";
-    $("#search").value = "";
-    try { localStorage.setItem("tab", key); } catch {}
-    renderTabs();
-    renderContent();
+  function renderTopicList(list) {
+    const q = state.query.toLowerCase();
+    const shown = q ? list.filter(({ item }) => `${item.title} ${item.summary} ${item.source}`.toLowerCase().includes(q)) : list;
+    $("#topic-list").innerHTML = shown.length ? shown.map(storyRow).join("")
+      : `<p class="empty">${q ? "Nothing matches. Try another word." : "No stories right now."}</p>`;
   }
 
-  function renderFeeds(feeds) {
-    $("#feeds").innerHTML = (feeds || []).map((f) =>
-      `<li class="${f.ok ? "" : "bad"}" title="${esc(f.error || f.url)}">${esc(f.name)}: ${f.ok ? `${f.count} items` : "failed"}</li>`
-    ).join("");
-  }
+  // ---------- Settings ----------
 
-  function renderUpdated() {
+  function renderSettings() {
+    $("#dark-toggle").checked = document.documentElement.dataset.theme !== "light";
+    $("#speech-rate").value = store.get("speech-rate", "1");
+    $("#key-state").textContent = store.get("anthropic-key") ? "Key saved in this browser" : "Not set up yet";
     if (!state.data) return;
-    const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
-    $("#updated").textContent = `${today} · Updated ${timeAgo(state.data.generated_at)}`;
+    $("#about-updated").textContent = timeAgo(state.data.generated_at);
+    const feeds = state.data.feeds || [];
+    const names = [...new Set(feeds.map((f) => f.name))];
+    const bad = feeds.filter((f) => !f.ok).length;
+    $("#sources-line").textContent = `${names.join(", ")}${bad ? ` · ${bad} feed${bad > 1 ? "s" : ""} failing` : ""}`;
+    $("#feeds").innerHTML = feeds.map((f) =>
+      `<li class="${f.ok ? "" : "bad"}" title="${esc(f.error || f.url)}"><span>${esc(f.name)}</span><span>${f.ok ? `${f.count} items` : "failed"}</span></li>`
+    ).join("");
+  }
+
+  // The browser's own voices; English ones first. They can load late, so this reruns.
+  function renderVoices() {
+    if (!speech.supported) { $("#speech-voice").closest(".row").hidden = true; return; }
+    const lang = (navigator.language || "en").slice(0, 2);
+    const voices = speechSynthesis.getVoices().slice().sort((a, b) =>
+      (b.lang.startsWith(lang) - a.lang.startsWith(lang)) || a.name.localeCompare(b.name));
+    const saved = store.get("speech-voice", "");
+    $("#speech-voice").innerHTML = `<option value="">Default</option>${voices.map((v) =>
+      `<option value="${esc(v.voiceURI)}"${v.voiceURI === saved ? " selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("")}`;
+  }
+
+  function setTheme(dark) {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    store.set("theme", document.documentElement.dataset.theme);
+    $('meta[name="theme-color"]').content = dark ? "#121318" : "#f6f4ef";
+    $("#dark-toggle").checked = dark;
+    window.dispatchEvent(new CustomEvent("theme-changed"));
+  }
+
+  // ---------- routing ----------
+
+  function route() {
+    const [view, arg] = (location.hash.slice(1) || "home").split("/");
+    const name = ["home", "signal", "globe", "settings", "topic"].includes(view) ? view : "home";
+    $$(".view").forEach((v) => { v.hidden = v.dataset.view !== name; });
+    $$("[data-nav]").forEach((a) => a.classList.toggle("active", a.dataset.nav === (name === "topic" ? "home" : name)));
+    if (name !== "signal" && speech.playing) speech.toggle();
+    if (state.data) {
+      if (name === "topic") {
+        state.query = "";
+        $("#search").value = "";
+        renderTopicPage(arg && (arg === "all" || topicOf(arg)) ? arg : "all");
+      }
+      if (name === "signal") observeFront();
+      if (name === "settings") renderSettings();
+      if (name === "globe") window.dispatchEvent(new CustomEvent("globe-show"));
+    }
+    window.scrollTo(0, 0);
+  }
+
+  function renderDates() {
+    $("#home-date").textContent = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    if (state.data) $("#updated").textContent = `Updated ${timeAgo(state.data.generated_at)}`;
   }
 
   async function load() {
@@ -202,59 +460,146 @@
     }
     window.NEWS_DATA = state.data;
     window.dispatchEvent(new CustomEvent("news-loaded"));
-    try {
-      const saved = localStorage.getItem("tab");
-      if (saved && (saved === "overview" || state.data.topics.some((t) => t.key === saved))) state.tab = saved;
-    } catch {}
-    renderUpdated();
+    seen = daily("seen");
+    scanned = daily("scanned");
+    renderDates();
     renderMarkets(state.data.markets);
-    renderBriefing(state.data.briefing);
-    renderTabs();
-    renderContent();
-    renderFeeds(state.data.feeds);
+    renderHome();
+    renderSignal();
+    renderSettings();
+    if (!state.loaded) route();
+    state.loaded = true;
   }
 
-  // Broken or hotlink-blocked photos fall back to the colored placeholder.
+  // ---------- events ----------
+
+  // Broken or hotlink-blocked photos are dropped.
   document.addEventListener("error", (e) => {
-    const img = e.target;
-    if (img.tagName !== "IMG" || !img.closest(".thumb")) return;
-    const thumb = img.closest(".thumb");
-    thumb.classList.add("fallback");
-    thumb.innerHTML = `<span>${esc(img.dataset.source)}</span>`;
+    if (e.target.tagName === "IMG" && e.target.closest(".story-thumb")) e.target.closest(".story-thumb").remove();
   }, true);
 
   document.addEventListener("click", (e) => {
-    const tabBtn = e.target.closest("[data-tab]");
-    if (tabBtn) {
-      setTab(tabBtn.dataset.tab);
-      if (tabBtn.classList.contains("see-all") || window.scrollY > $("#tabs").offsetTop) {
-        window.scrollTo({ top: $("#content").offsetTop - 70, behavior: "smooth" });
-      }
+    const t = e.target;
+    const toggle = t.closest("[data-topic-toggle]");
+    if (toggle) {
+      const mine = new Set(myTopics());
+      const key = toggle.dataset.topicToggle;
+      if (mine.has(key)) { if (mine.size > 1) mine.delete(key); } else mine.add(key);
+      store.set("my-topics", JSON.stringify(state.data.topics.map((x) => x.key).filter((k) => mine.has(k))));
+      renderSignal();
       return;
     }
-    const ask = e.target.closest(".ask-btn");
-    if (ask) {
-      window.dispatchEvent(new CustomEvent("ask-claude", { detail: {
-        text: `Explain this headline and what could happen next (scenarios + likely market impact):\n"${ask.dataset.title}" (${ask.dataset.source})`,
-      } }));
+    const analyze = t.closest("[data-analyze]");
+    if (analyze) {
+      const entry = front[Number(analyze.dataset.analyze)];
+      markSeen(entry.item.link);
+      askAbout(entry.item);
+      return;
     }
+    const read = t.closest("[data-read]");
+    if (read) { markSeen(read.closest(".front-card").dataset.link); return; }
+    const dot = t.closest("[data-dot]");
+    if (dot) {
+      const card = $$(".front-card")[Number(dot.dataset.dot)];
+      $("#front").scrollTo({ left: card.offsetLeft - $("#front").offsetLeft, behavior: "smooth" });
+      return;
+    }
+    const ask = t.closest("[data-ask-link]");
+    if (ask) {
+      const entry = allStories().find((x) => x.item.link === ask.dataset.askLink);
+      if (entry) askAbout(entry.item);
+      return;
+    }
+    if (t.closest("#play")) { speech.toggle(); return; }
+    const skip = t.closest("[data-skip]");
+    if (skip) { speech.skip(Number(skip.dataset.skip)); return; }
+    if (t.closest("[data-theme-toggle]")) { setTheme(document.documentElement.dataset.theme === "light"); }
   });
+
+  document.addEventListener("toggle", (e) => {
+    const item = e.target.closest?.("[data-scan]");
+    if (!item || !item.open) return;
+    scanned.add(item.dataset.scan);
+    saveDaily("scanned", scanned);
+    item.classList.add("done");
+    updateScanCount();
+  }, true);
 
   $("#search").addEventListener("input", (e) => {
     state.query = e.target.value.trim();
-    if (state.data) { renderTabs(); renderContent(); }
+    renderTopicList(allStories());
   });
-
-  $("#theme-toggle").addEventListener("click", () => {
-    const root = document.documentElement;
-    const dark = root.dataset.theme ? root.dataset.theme === "dark"
-      : matchMedia("(prefers-color-scheme: dark)").matches;
-    root.dataset.theme = dark ? "light" : "dark";
-    try { localStorage.setItem("theme", root.dataset.theme); } catch {}
+  $("#dark-toggle").addEventListener("change", (e) => setTheme(e.target.checked));
+  $("#speech-rate").addEventListener("change", (e) => store.set("speech-rate", e.target.value));
+  $("#speech-voice").addEventListener("change", (e) => {
+    store.set("speech-voice", e.target.value);
+    // A short sample so the choice can be heard right away.
+    if (speech.supported && !speech.playing) {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(`Good ${partOfDay()}. Here is your brief.`);
+      const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === e.target.value);
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
+      u.rate = Number(store.get("speech-rate", "1"));
+      speechSynthesis.speak(u);
+    }
   });
+  if (speech.supported) speechSynthesis.addEventListener("voiceschanged", renderVoices);
+  renderVoices();
+  window.addEventListener("chat-settings-saved", renderSettings);
+  window.addEventListener("hashchange", route);
 
+  // ---------- what's on screen, for Ask Claude ----------
+
+  const storyLine = (item) => `- ${item.title} (${outlets(item).join(", ")}, ${timeAgo(item.published)})${
+    item.summary ? `: ${item.summary}` : ""}`;
+
+  // A short label and a plain-text description of the screen the reader has open.
+  function screenContext() {
+    if (!state.data) return { label: "Loading", text: "The page is still loading." };
+    const chart = window.NEWS_CHARTS?.view();
+    if (chart) return chart;
+    const [view, arg] = (location.hash.slice(1) || "home").split("/");
+    if (view === "signal") {
+      const box = $("#front").getBoundingClientRect();
+      const visible = front.filter((_, i) => {
+        const r = $$(".front-card")[i]?.getBoundingClientRect();
+        return r && r.right > box.left + 20 && r.left < box.right - 20;
+      });
+      const open = $$(".scan-item[open]").map((d) => topicOf(d.dataset.scan).label);
+      const lines = ["Signal screen (front page and daily scan)."];
+      if (visible.length) lines.push("Front Page story card(s) on screen:", ...visible.map((f) => `${storyLine(f.item)} [${labelOf(f.key)}]`));
+      if (open.length) lines.push(`Daily Scan sections expanded: ${open.join(", ")}.`);
+      const label = visible[0] ? `Signal · “${visible[0].item.title}”` : "Signal";
+      return { label, text: lines.join("\n") };
+    }
+    if (view === "globe") {
+      const gv = window.GLOBE_VIEW?.();
+      if (!gv) return { label: "Globe", text: "Globe screen." };
+      const lines = [`Globe screen, "${gv.mode}" mode. Countries lit up (stories): ${gv.countries.join(", ") || "none"}.`];
+      if (gv.open) lines.push(`Open country: ${gv.open.country}. Its stories:`, ...gv.open.stories.map((x) => `- ${x}`));
+      return { label: gv.open ? `Globe · ${gv.open.country}` : `Globe · ${gv.mode}`, text: lines.join("\n") };
+    }
+    if (view === "topic") {
+      const key = arg && (arg === "all" || topicOf(arg)) ? arg : "all";
+      const list = key === "all" ? allStories() : topicOf(key).items.map((i) => ({ item: i, key }));
+      const q = state.query.toLowerCase();
+      const shown = q ? list.filter(({ item }) => `${item.title} ${item.summary} ${item.source}`.toLowerCase().includes(q)) : list;
+      const b = key === "all" ? null : briefingFor(key);
+      const lines = [`${labelOf(key)} page${q ? `, searching for "${state.query}"` : ""}.`];
+      if (b?.bullets?.length) lines.push("The short version:", ...b.bullets.map((x) => `- ${x}`));
+      lines.push("Stories listed:", ...shown.slice(0, 20).map(({ item }) => storyLine(item)));
+      return { label: labelOf(key), text: lines.join("\n") };
+    }
+    if (view === "settings") return { label: "Settings", text: "Settings screen." };
+    return { label: "Home", text: `Home screen: "Your world today" with a tile per section (${
+      state.data.topics.map((t) => `${t.label}: ${t.items.length} stories`).join(", ")}).` };
+  }
+
+  window.NEWS_APP = { look, icon, labelOf, timeAgo, esc, askAbout, allStories, screenContext };
+
+  route();
   load();
-  setInterval(renderUpdated, 60 * 1000);
+  setInterval(renderDates, 60 * 1000);
   // Pick up the hourly rebuild without a manual reload.
   setInterval(load, 15 * 60 * 1000);
 })();

@@ -120,9 +120,10 @@ feeds:
   - {name: "Yahoo Finance", url: "https://news.google.com/rss/search?q=site:finance.yahoo.com+when:1d&hl=en-US&gl=US&ceid=US:en", topics: [markets]}
   - {name: "Yahoo Finance", url: "https://news.google.com/rss/search?q=site:finance.yahoo.com+AI+when:2d&hl=en-US&gl=US&ceid=US:en", topics: [ai]}
 
-# Market tickers (Yahoo Finance symbols).
+# Market tickers (Yahoo Finance symbols). Tap one on the site to open its
+# candlestick chart; `topics` also lists its chart on those section pages.
 markets:
-  - {symbol: "^GSPC", label: "S&P 500"}
-  - {symbol: "GC=F", label: "Gold"}
-  - {symbol: "NVDA", label: "Nvidia"}
-  - {symbol: "MRVL", label: "Marvell"}
+  - {symbol: "^GSPC", label: "S&P 500", topics: [markets]}
+  - {symbol: "GC=F", label: "Gold", topics: [gold]}
+  - {symbol: "NVDA", label: "Nvidia", topics: [markets, ai]}
+  - {symbol: "MRVL", label: "Marvell", topics: [markets, ai]}
