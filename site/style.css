@@ -139,8 +139,8 @@ main {
   font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
 }
 .pill-gold:hover { background: color-mix(in srgb, var(--gold) 20%, transparent); }
-.mark { width: 64px; height: 44px; color: var(--text); opacity: .9; }
-.head-actions { justify-self: end; display: flex; gap: 8px; }
+.mark { grid-column: 2; width: 64px; height: 44px; color: var(--text); opacity: .9; }
+.head-actions { grid-column: 3; justify-self: end; display: flex; gap: 8px; }
 
 .home-title { text-align: center; margin: 28px 0 52px; }
 .home-title h1 { font-size: clamp(30px, 6vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
@@ -623,3 +623,6 @@ body:has(.chat:not([hidden])) .claude-fab { display: none; }
   .row { gap: 14px; padding: 14px 16px; font-size: 17px; }
   .feeds { padding-left: 20px; }
 }
+
+/* Ask Claude switched off (see index.html) */
+.no-chat .chat-only { display: none !important; }

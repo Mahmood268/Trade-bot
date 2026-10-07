@@ -33,7 +33,8 @@ It updates itself every hour via GitHub Actions and is hosted free on GitHub Pag
    https://console.anthropic.com. Without it the site still works, just without the briefing.
 4. **First run:** go to *Actions → Update news → Run workflow*. The site appears at
    `https://<your-username>.github.io/<repo-name>/`.
-5. **Chat:** open the site, tap the gold ✦ button, then **⚙** and paste your API key.
+5. **Chat (switched off for now):** to turn it on, delete the `no-chat` line in `site/index.html`.
+   Then open the site, tap the gold ✦ button, then **⚙** and paste your API key.
    The key is saved only in that browser and sent only to Anthropic. It is never stored in
    the repo or the site.
 

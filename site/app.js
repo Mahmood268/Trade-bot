@@ -160,7 +160,7 @@
       <a class="card-title serif" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" data-read>${esc(item.title)}</a>
       ${item.summary ? `<p class="card-summary">${esc(item.summary)}</p>` : ""}
       <p class="card-meta">${esc(item.source)}${n > 1 ? ` <span title="${esc(outlets(item).join(", "))}">+${n - 1} more</span>` : ""} · ${esc(timeAgo(item.published))}</p>
-      <button class="card-foot" data-analyze="${idx}">
+      <button class="card-foot chat-only" data-analyze="${idx}">
         <span>Get Claude's analysis</span><span class="badge">✦ AI</span>
         <span class="round-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
       </button>
@@ -360,7 +360,7 @@
         <p class="story-meta"><span class="dot"></span>${esc(look(key).short)} · ${esc(item.source)}${n > 1 ? ` +${n - 1}` : ""} · ${esc(timeAgo(item.published))}</p>
         <a class="story-title serif" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>
         ${item.summary ? `<p class="story-summary">${esc(item.summary)}</p>` : ""}
-        <button class="ask-btn" data-ask-link="${esc(item.link)}">✦ Ask Claude</button>
+        <button class="ask-btn chat-only" data-ask-link="${esc(item.link)}">✦ Ask Claude</button>
       </div>
       ${img ? `<a class="story-thumb" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">${img}</a>` : ""}
     </article>`;

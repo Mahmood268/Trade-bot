@@ -43,16 +43,6 @@ jobs:
       - name: Download previous data
         run: curl -fsSL "${{ steps.pages.outputs.base_url }}/data.json" -o site/data.json || echo "No previous data"
 
-      - name: Debug live site (temporary)
-        if: github.ref != 'refs/heads/main'
-        run: |
-          base="${{ steps.pages.outputs.base_url }}"
-          for f in index.html app.js style.css globe.js charts.js chat.js; do
-            curl -fsSL "$base/$f" -o "/tmp/live-$f" && (cmp -s "/tmp/live-$f" "site/$f" && echo "same: $f" || echo "DIFFERENT: $f") || echo "MISSING: $f"
-          done
-          echo "data.json size: $(wc -c < site/data.json)"
-          echo "DATA-BEGIN"; gzip -9c site/data.json | base64 -w 0; echo; echo "DATA-END"
-
       - name: Fetch news
         run: python scripts/fetch_news.py
 
