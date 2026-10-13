@@ -368,7 +368,7 @@
 
   // ---------- drawing ----------
 
-  let svg, projection, path, sphere, landLayer, laneLayer, strikeLayer, labelLayer, size = 0;
+  let svg, projection, path, sphere, landLayer, laneLayer, strikeLayer, labelLayer, size = 0, sizeH = 0;
 
   function el(tag, attrs = {}, parent) {
     const n = document.createElementNS(NS, tag);
@@ -402,19 +402,27 @@
     new ResizeObserver(resize).observe(svg.parentElement);
   }
 
+  // Zoomed in, the map fills the whole screen; zoomed out it's the globe in its box.
+  const isFull = () => g.zoom > 1.15;
+
   function resize() {
-    const w = Math.min(svg.parentElement.clientWidth, 560);
+    const wrap = svg.parentElement, full = isFull();
+    wrap.classList.toggle("full", full);
+    document.body.classList.toggle("globe-full", full && g.visible);
+    if (!full) g.boxW = Math.min(wrap.clientWidth, 560) || g.boxW;
+    const w = full ? innerWidth : g.boxW, h = full ? innerHeight : g.boxW;
     if (!w) return;
-    size = w;
-    svg.setAttribute("viewBox", `0 0 ${w} ${w}`);
+    size = w; sizeH = h;
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
     svg.setAttribute("width", w);
-    svg.setAttribute("height", w);
-    const r = w / 2 - 14;
+    svg.setAttribute("height", h);
+    // Same globe size in both views, so zooming in doesn't jump.
+    const r = g.boxW / 2 - 14;
     g.radius = r;
-    projection.translate([w / 2, w / 2]).scale(r * g.zoom).clipExtent([[0, 0], [w, w]]);
+    projection.translate([w / 2, h / 2]).scale(r * g.zoom).clipExtent([[0, 0], [w, h]]);
     for (const sel of [".halo", ".shine"]) {
       const c = svg.querySelector(sel);
-      c.setAttribute("cx", w / 2); c.setAttribute("cy", w / 2);
+      c.setAttribute("cx", w / 2); c.setAttribute("cy", h / 2);
       c.setAttribute("r", sel === ".halo" ? r + 12 : r);
     }
     draw();
@@ -428,7 +436,8 @@
     const max = Math.max(1, ...g.counts.values());
     const center = [-g.rotate[0], -g.rotate[1]];
     // Roughly how far from the middle the screen reaches; anything beyond isn't drawn.
-    const view = Math.min(Math.PI / 2, Math.asin(Math.min(1, 1.45 / g.zoom))) + 0.05;
+    const corner = Math.hypot(size, sizeH) / 2 / g.radius;
+    const view = Math.min(Math.PI / 2, Math.asin(Math.min(1, corner * 1.02 / g.zoom))) + 0.05;
     if (g.zoom >= DETAIL["10m"].zoom) loadDetail("10m");
     for (const c of g.countries) {
       const shown = d3.geoDistance(c.centroid, center) < view + (c.reach || 0);
@@ -462,7 +471,7 @@
       if (!c.node.getAttribute("d") || d3.geoDistance(c.centroid, center) > 1.35) continue;
       // Zoomed in, a big country's label sits in the middle of the part on screen.
       const [x, y] = g.zoom >= 2.5 && c.lo.geometry.type !== "Point" ? path.centroid(c.lo) : projection(c.centroid);
-      if (!(x >= 0 && y >= 0 && x <= size && y <= size)) continue;
+      if (!(x >= 0 && y >= 0 && x <= size && y <= sizeH)) continue;
       const fs = g.zoom >= 2.5 ? Math.max(10, Math.min(20, Math.sqrt(path.area(c.lo)) / 9)) : 11.5;
       const half = c.display.length * fs * 0.3 + 4;
       // Skip labels that would sit on top of a busier or bigger country's label.
@@ -620,7 +629,7 @@
         core: el("circle", { class: "strike-core" }, grp),
         hit: el("circle", { class: "strike-hit", r: 9, "data-strike": i }, grp),
       };
-      s.zoneGeo = d3.geoCircle().center(s.target.p).radius(3)();
+      s.zoneCircle = d3.geoCircle().center(s.target.p);
       if (s.origin) {
         const interp = d3.geoInterpolate(s.origin.p, s.target.p);
         s.samples = d3.range(SAMPLES + 1).map((k) => interp(k / SAMPLES));
@@ -658,7 +667,8 @@
     g.strikes.forEach((s, i) => {
       const n = s.nodes;
       if (!n) return;
-      n.zone.setAttribute("d", path(s.zoneGeo) || "");
+      // The danger zone shrinks as you zoom in so it doesn't swallow the map.
+      n.zone.setAttribute("d", path(s.zoneCircle.radius(Math.min(3, 7.5 / g.zoom))()) || "");
       const seen = d3.geoDistance(s.target.p, center) < Math.PI / 2 - 0.03;
       const [tx, ty] = seen ? projection(s.target.p) : [-99, -99];
       const t = still ? 1 : ((now + i * 650) % CYCLE) / CYCLE;
@@ -713,9 +723,11 @@
   // ---------- interaction ----------
 
   function setZoom(z) {
+    const wasFull = isFull();
     g.zoom = Math.max(1, Math.min(60, z));
-    projection.scale(g.radius * g.zoom);
     g.lastInteract = Date.now();
+    if (isFull() !== wasFull) { resize(); return; }
+    projection.scale(g.radius * g.zoom);
     draw();
   }
 
@@ -905,7 +917,10 @@
     }
     if (e.target.closest("[data-close-sheet]") || e.target.id === "sheet") closeSheet();
   });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!$("#sheet").hidden) closeSheet(); else if (isFull() && g.visible && $("#story").hidden) setZoom(1);
+  });
 
   window.addEventListener("news-loaded", () => init().then(compute));
   window.addEventListener("globe-show", () => {
@@ -916,6 +931,6 @@
     });
   });
   window.addEventListener("hashchange", () => {
-    if (!location.hash.startsWith("#globe")) { g.visible = false; closeSheet(); }
+    if (!location.hash.startsWith("#globe")) { g.visible = false; closeSheet(); document.body.classList.remove("globe-full"); }
   });
 })();

@@ -698,6 +698,20 @@ body:has(.chat:not([hidden])) .claude-fab { display: none; }
   width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--card); color: var(--text); font-size: 20px; line-height: 1; display: grid; place-items: center;
 }
+/* Zoomed in, the map covers the whole screen; ✕ or zooming all the way out goes back. */
+.globe-wrap.full { position: fixed; inset: 0; z-index: 25; padding: 0; background: var(--ocean-b); display: block; }
+.globe-wrap.full .globe { border-radius: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; }
+.globe-wrap.full .halo { display: none; }
+.globe-exit { display: none; }
+.globe-wrap.full .globe-exit {
+  display: grid; place-items: center; position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 14px;
+  width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 85%, transparent); color: var(--text); font-size: 18px;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.globe-wrap.full .zoom-btns { right: 14px; bottom: calc(env(safe-area-inset-bottom) + 110px); }
+.globe-wrap.full .zoom-btns button { background: color-mix(in srgb, var(--card) 85%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+body.globe-full { overflow: hidden; }
 .more-news { display: block; margin: 14px 0 4px; color: var(--gold); font-weight: 600; }
 
 /* TradingView live chart (Stock Market page) */
