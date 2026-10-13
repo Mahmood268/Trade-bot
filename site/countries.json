@@ -903,5 +903,130 @@
 "capital": "Hong Kong",
 "population": "7.5 million",
 "about": "A Chinese special region and major finance hub. Beijing has tightened control there since the 2019 protests."
+},
+"Vatican": {
+"capital": "Vatican City",
+"population": "800",
+"about": "The world's smallest country, a walled enclave in Rome that is the seat of the Pope and the Catholic Church."
+},
+"Monaco": {
+"capital": "Monaco",
+"population": "39,000",
+"about": "A tiny, glamorous city-state on the French Riviera, known for its casino, Grand Prix and wealthy residents."
+},
+"San Marino": {
+"capital": "San Marino",
+"population": "34,000",
+"about": "One of the world's oldest republics, a hilltop microstate surrounded by Italy."
+},
+"Liechtenstein": {
+"capital": "Vaduz",
+"population": "40,000",
+"about": "A small Alpine principality between Switzerland and Austria, rich from finance and high-tech manufacturing."
+},
+"Andorra": {
+"capital": "Andorra la Vella",
+"population": "80,000",
+"about": "A small mountain principality between France and Spain, popular for skiing and tax-free shopping."
+},
+"Mauritius": {
+"capital": "Port Louis",
+"population": "1.3 million",
+"about": "An Indian Ocean island nation east of Madagascar, one of Africa's most prosperous democracies, built on tourism, textiles and finance."
+},
+"Seychelles": {
+"capital": "Victoria",
+"population": "0.1 million",
+"about": "An Indian Ocean archipelago of 115 islands, known for beaches, tuna fishing and luxury tourism."
+},
+"Comoros": {
+"capital": "Moroni",
+"population": "0.9 million",
+"about": "A volcanic island nation between Mozambique and Madagascar that exports vanilla and cloves."
+},
+"Cabo Verde": {
+"capital": "Praia",
+"population": "0.5 million",
+"about": "An Atlantic island nation off West Africa, a stable democracy relying on tourism and money sent home from abroad."
+},
+"São Tomé and Principe": {
+"capital": "São Tomé",
+"population": "0.23 million",
+"about": "A small island nation in the Gulf of Guinea, once a major cocoa producer."
+},
+"Barbados": {
+"capital": "Bridgetown",
+"population": "0.28 million",
+"about": "A Caribbean island that became a republic in 2021, known for tourism, rum and cricket."
+},
+"Grenada": {
+"capital": "St. George's",
+"population": "0.13 million",
+"about": "A Caribbean island nation known as the 'Spice Isle' for its nutmeg."
+},
+"Saint Lucia": {
+"capital": "Castries",
+"population": "0.18 million",
+"about": "A volcanic Caribbean island famous for the twin Piton peaks and tourism."
+},
+"St. Vin. and Gren.": {
+"capital": "Kingstown",
+"population": "0.1 million",
+"about": "Saint Vincent and the Grenadines, a Caribbean nation of one main island and a chain of small ones, popular with sailors."
+},
+"St. Kitts and Nevis": {
+"capital": "Basseterre",
+"population": "47,000",
+"about": "The smallest country in the Americas, two Caribbean islands that sell citizenship to investors."
+},
+"Antigua and Barb.": {
+"capital": "St. John's",
+"population": "0.1 million",
+"about": "Antigua and Barbuda, a Caribbean nation known for its beaches and sailing."
+},
+"Dominica": {
+"capital": "Roseau",
+"population": "73,000",
+"about": "A mountainous, forested Caribbean island known as 'the Nature Island'."
+},
+"Tonga": {
+"capital": "Nukuʻalofa",
+"population": "0.1 million",
+"about": "A Polynesian kingdom of about 170 islands in the South Pacific, hit by a huge volcanic eruption in 2022."
+},
+"Samoa": {
+"capital": "Apia",
+"population": "0.22 million",
+"about": "A Polynesian island nation in the South Pacific with a strong traditional culture."
+},
+"Kiribati": {
+"capital": "Tarawa",
+"population": "0.13 million",
+"about": "A Pacific nation of low atolls spread across a huge ocean area, very exposed to rising seas."
+},
+"Micronesia": {
+"capital": "Palikir",
+"population": "0.11 million",
+"about": "The Federated States of Micronesia, hundreds of islands in the western Pacific with close ties to the United States."
+},
+"Marshall Is.": {
+"capital": "Majuro",
+"population": "42,000",
+"about": "A Pacific nation of coral atolls, site of US nuclear tests in the 1940s and 50s."
+},
+"Palau": {
+"capital": "Ngerulmud",
+"population": "18,000",
+"about": "A western Pacific island nation known for diving and marine protection, and an ally of Taiwan."
+},
+"Nauru": {
+"capital": "Yaren (de facto)",
+"population": "12,000",
+"about": "One of the world's smallest countries, a single Pacific island once rich from phosphate mining."
+},
+"Macao": {
+"capital": "Macao",
+"population": "0.7 million",
+"about": "A Chinese special region near Hong Kong and the world's biggest gambling centre."
 }
 }
