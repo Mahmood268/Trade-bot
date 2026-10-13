@@ -85,6 +85,7 @@
   };
   // Countries too small for the world map get a dot so they can still be tapped.
   const TINY = { Bahrain: [50.55, 26.07], Singapore: [103.82, 1.35], Malta: [14.45, 35.9], Maldives: [73.5, 3.2], "Hong Kong": [114.17, 22.32] };
+  const NO_LABEL = new Set(["Siachen Glacier", "Ashmore and Cartier Is.", "Indian Ocean Ter.", "Heard I. and McDonald Is.", "Br. Indian Ocean Ter."]);
   const DISPLAY = { "United States of America": "United States", "Dem. Rep. Congo": "DR Congo", "S. Sudan": "South Sudan",
     "Central African Rep.": "Central African Republic", "Dominican Rep.": "Dominican Republic",
     "Bosnia and Herz.": "Bosnia and Herzegovina", "Eq. Guinea": "Equatorial Guinea", "W. Sahara": "Western Sahara" };
@@ -252,15 +253,92 @@
       .map((f) => ({ f, name: f.properties.name, display: DISPLAY[f.properties.name] || f.properties.name,
         res: matchers(f.properties.name), centroid: d3.geoCentroid(f) }));
     for (const [name, p] of Object.entries(TINY)) {
-      g.countries.push({ f: { type: "Feature", geometry: { type: "Point", coordinates: p } }, name, display: name,
-        res: matchers(name), centroid: p, dot: true });
+      g.countries.push({ f: pointOf(p), name, display: name, res: matchers(name), centroid: p, dot: true });
     }
-    for (const c of g.countries) c.tiny = c.dot || d3.geoArea(c.f) < 0.004;
+    for (const c of g.countries) prepare(c, c.f);
     g.facts = await fetch("countries.json").then((r) => r.json()).catch(() => ({}));
     g.ready = true;
     buildSvg();
     renderModes();
     compute();
+    loadDetail("50m");
+  }
+
+  // The map starts with a light outline set; sharper coastlines and islands load in the
+  // background (1:50m) and when you zoom in close (1:10m).
+  const DETAIL = { "50m": { file: "vendor/countries-50m.json", zoom: 1.8 }, "10m": { file: "vendor/countries-10m.json", zoom: 7 } };
+  const pointOf = (p) => ({ type: "Feature", geometry: { type: "Point", coordinates: p } });
+
+  function prepare(c, f) {
+    c.lo ||= f;
+    c.tiny = c.dot || d3.geoArea(c.lo) < 0.004;
+    // How far (in radians) the country reaches from its middle, to skip drawing it when off screen.
+    const [[w, so], [e, n]] = d3.geoBounds(f);
+    const reach = e < w ? Math.PI : Math.max(...[[w, so], [w, n], [e, so], [e, n]].map((p) => d3.geoDistance(c.centroid, p)));
+    c.reach = Math.max(c.reach || 0, reach);
+  }
+
+  async function loadDetail(level) {
+    const d = DETAIL[level];
+    if (d.state) return;
+    d.state = "loading";
+    try {
+      const world = await fetch(d.file).then((r) => r.json());
+      const byName = new Map(g.countries.map((c) => [c.name, c]));
+      for (const f of topojson.feature(world, world.objects.countries).features) {
+        const name = f.properties.name;
+        if (!name || name === "Antarctica") continue;
+        rewind(f);
+        let c = byName.get(name);
+        if (!c) {
+          if (level !== "50m") continue;
+          // Small places missing from the light map: a dot when zoomed out if we have notes on them.
+          const centroid = d3.geoCentroid(f);
+          c = { name, display: DISPLAY[name] || name, res: matchers(name), centroid, dot: !!g.facts?.[name] };
+          c.lo = c.dot ? pointOf(centroid) : null;
+          c.node = el("path", { class: c.dot ? "land tiny-dot" : "land" }, landLayer);
+          c.node.dataset.name = name;
+          g.countries.push(c);
+          byName.set(name, c);
+          c.tiny = true;
+        }
+        c[level] = f;
+        c.parts = { ...c.parts, [level]: splitParts(f) };
+        prepare(c, f);
+      }
+      d.state = "ready";
+      compute();
+    } catch {
+      d.state = null;
+    }
+  }
+
+  // A few shapes in the sharper files are wound the wrong way round, which d3 reads as "the
+  // whole world except this island" and paints over everything; turn those back.
+  function rewind(f) {
+    const geo = f.geometry;
+    const polys = geo.type === "Polygon" ? [geo.coordinates] : geo.type === "MultiPolygon" ? geo.coordinates : [];
+    for (const poly of polys) {
+      if (d3.geoArea({ type: "Polygon", coordinates: poly }) > 2 * Math.PI) for (const ring of poly) ring.reverse();
+    }
+  }
+
+  // Each island or piece of a country on its own, so pieces off screen can be skipped.
+  function splitParts(f) {
+    const geo = f.geometry;
+    const polys = geo.type === "Polygon" ? [geo.coordinates] : geo.type === "MultiPolygon" ? geo.coordinates : [];
+    return polys.map((poly) => {
+      const p = { type: "Polygon", coordinates: poly }, centroid = d3.geoCentroid(p), [[w, so], [e, n]] = d3.geoBounds(p);
+      const reach = e < w ? Math.PI : Math.max(...[[w, so], [w, n], [e, so], [e, n]].map((q) => d3.geoDistance(centroid, q)));
+      return { poly, centroid, reach };
+    });
+  }
+
+  function featureFor(c, center, view) {
+    const level = g.zoom >= DETAIL["10m"].zoom && c["10m"] ? "10m" : g.zoom >= DETAIL["50m"].zoom && c["50m"] ? "50m" : null;
+    if (!level) return c.lo;
+    const polys = c.parts[level].filter((p) => d3.geoDistance(p.centroid, center) < view + p.reach).map((p) => p.poly);
+    return polys.length ? { type: "Feature", geometry: { type: "MultiPolygon", coordinates: polys } } : null;
   }
 
   // ---------- data ----------
@@ -348,8 +426,14 @@
     sphere.setAttribute("d", path({ type: "Sphere" }));
     const mode = MODES.find((m) => m.key === g.mode);
     const max = Math.max(1, ...g.counts.values());
+    const center = [-g.rotate[0], -g.rotate[1]];
+    // Roughly how far from the middle the screen reaches; anything beyond isn't drawn.
+    const view = Math.min(Math.PI / 2, Math.asin(Math.min(1, 1.45 / g.zoom))) + 0.05;
+    if (g.zoom >= DETAIL["10m"].zoom) loadDetail("10m");
     for (const c of g.countries) {
-      c.node.setAttribute("d", path(c.f) || "");
+      const shown = d3.geoDistance(c.centroid, center) < view + (c.reach || 0);
+      c.f = shown ? featureFor(c, center, view) : null;
+      c.node.setAttribute("d", c.f ? path(c.f) || "" : "");
       const n = g.counts.get(c.name) || 0;
       if (n) {
         c.node.classList.add("hot");
@@ -361,20 +445,31 @@
         c.node.style.fill = c.node.style.fillOpacity = c.node.style.stroke = "";
       }
     }
-    // Labels for the busiest countries on the visible side; more as you zoom in.
-    const center = [-g.rotate[0], -g.rotate[1]];
+    // Labels for the busiest countries on the visible side; more as you zoom in, and once
+    // zoomed in close, every country in view gets its name.
     const top = [...g.counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, Math.round(10 * g.zoom)).map(([name]) => name);
+    if (g.zoom >= 2.5) {
+      // Bigger countries first so their names win when labels would overlap.
+      const rest = g.countries.filter((c) => !g.counts.has(c.name) && !NO_LABEL.has(c.name) && c.node.getAttribute("d"));
+      for (const c of rest) c.screenArea = path.area(c.lo);
+      top.push(...rest.sort((a, b) => b.screenArea - a.screenArea).map((c) => c.name));
+    }
     labelLayer.innerHTML = "";
     const placed = [];
+    const byName = new Map(g.countries.map((c) => [c.name, c]));
     for (const name of top) {
-      const c = g.countries.find((x) => x.name === name);
-      if (d3.geoDistance(c.centroid, center) > 1.35) continue;
-      const [x, y] = projection(c.centroid);
-      if (x < 0 || y < 0 || x > size || y > size) continue;
-      // Skip labels that would sit on top of a busier country's label.
-      if (placed.some(([px, py]) => Math.abs(px - x) < 70 && Math.abs(py - y) < 16)) continue;
-      placed.push([x, y]);
+      const c = byName.get(name);
+      if (!c.node.getAttribute("d") || d3.geoDistance(c.centroid, center) > 1.35) continue;
+      // Zoomed in, a big country's label sits in the middle of the part on screen.
+      const [x, y] = g.zoom >= 2.5 && c.lo.geometry.type !== "Point" ? path.centroid(c.lo) : projection(c.centroid);
+      if (!(x >= 0 && y >= 0 && x <= size && y <= size)) continue;
+      const fs = g.zoom >= 2.5 ? Math.max(10, Math.min(20, Math.sqrt(path.area(c.lo)) / 9)) : 11.5;
+      const half = c.display.length * fs * 0.3 + 4;
+      // Skip labels that would sit on top of a busier or bigger country's label.
+      if (placed.some(([px, py, ph, pf]) => Math.abs(px - x) < half + ph && Math.abs(py - y) < (fs + pf) * 0.6)) continue;
+      placed.push([x, y, half, fs]);
       const t = el("text", { x, y, "text-anchor": "middle", dy: "0.35em" }, labelLayer);
+      t.style.fontSize = `${fs.toFixed(1)}px`;
       t.textContent = c.display;
     }
     drawLanes();
@@ -618,7 +713,7 @@
   // ---------- interaction ----------
 
   function setZoom(z) {
-    g.zoom = Math.max(1, Math.min(8, z));
+    g.zoom = Math.max(1, Math.min(60, z));
     projection.scale(g.radius * g.zoom);
     g.lastInteract = Date.now();
     draw();
@@ -690,7 +785,7 @@
     const center = [-g.rotate[0], -g.rotate[1]];
     let best = null, bestD = Infinity;
     for (const c of g.countries) {
-      if (d3.geoDistance(c.centroid, center) > Math.PI / 2 - 0.05) continue;
+      if (!c.f || d3.geoDistance(c.centroid, center) > Math.PI / 2 - 0.05) continue;
       const [cx, cy] = projection(c.centroid), d = Math.hypot(cx - x, cy - y);
       if (d < reach * k && d < bestD && isSmall(c)) { best = c.name; bestD = d; }
     }
@@ -698,7 +793,7 @@
     if (hitName) return hitName;
     // A tap on the sea: the nearest country, if it is close.
     for (const c of g.countries) {
-      if (d3.geoDistance(c.centroid, center) > Math.PI / 2 - 0.05) continue;
+      if (!c.f || d3.geoDistance(c.centroid, center) > Math.PI / 2 - 0.05) continue;
       const [cx, cy] = projection(c.centroid), d = Math.hypot(cx - x, cy - y);
       if (d < 30 * k && d < bestD) { best = c.name; bestD = d; }
     }
