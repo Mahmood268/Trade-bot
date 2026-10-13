@@ -1,7 +1,8 @@
 // Globe screen: an orthographic globe (d3-geo + world-atlas, vendored in
 // site/vendor) that lights up the countries in today's stories. Drag to spin,
 // tap a country (or a chip below) to list its stories. Missile, drone and air strikes in the
-// headlines are drawn as arcs from where they came from to where they landed.
+// headlines are drawn as arcs from where they came from to where they landed, and ships sail
+// through the Strait of Hormuz and the Red Sea.
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const NS = "http://www.w3.org/2000/svg";
@@ -75,9 +76,15 @@
     Somalia: { words: ["somalis?", "mogadishu"] },
     Libya: { words: ["libyans?", "tripoli"] },
     Georgia: { skipName: true, words: ["tbilisi"] },
+    Bahrain: { words: ["bahraini", "manama"] },
+    Singapore: { words: ["singaporeans?"] },
+    Malta: { words: ["maltese", "valletta"] },
+    Maldives: { words: ["maldivians?"] },
     Chad: { skipName: true, words: ["n'?djamena"] },
     Guinea: { skipName: true, words: ["(?<!new |equatorial |papua )guinea(?!-bissau)"] },
   };
+  // Countries too small for the world map get a dot so they can still be tapped.
+  const TINY = { Bahrain: [50.55, 26.07], Singapore: [103.82, 1.35], Malta: [14.45, 35.9], Maldives: [73.5, 3.2], "Hong Kong": [114.17, 22.32] };
   const DISPLAY = { "United States of America": "United States", "Dem. Rep. Congo": "DR Congo", "S. Sudan": "South Sudan",
     "Central African Rep.": "Central African Republic", "Dominican Rep.": "Dominican Republic",
     "Bosnia and Herz.": "Bosnia and Herzegovina", "Eq. Guinea": "Equatorial Guinea", "W. Sahara": "Western Sahara" };
@@ -244,6 +251,12 @@
       .filter((f) => f.properties.name !== "Antarctica")
       .map((f) => ({ f, name: f.properties.name, display: DISPLAY[f.properties.name] || f.properties.name,
         res: matchers(f.properties.name), centroid: d3.geoCentroid(f) }));
+    for (const [name, p] of Object.entries(TINY)) {
+      g.countries.push({ f: { type: "Feature", geometry: { type: "Point", coordinates: p } }, name, display: name,
+        res: matchers(name), centroid: p, dot: true });
+    }
+    for (const c of g.countries) c.tiny = c.dot || d3.geoArea(c.f) < 0.004;
+    g.facts = await fetch("countries.json").then((r) => r.json()).catch(() => ({}));
     g.ready = true;
     buildSvg();
     renderModes();
@@ -266,15 +279,18 @@
       if (hits.length) { g.counts.set(c.name, hits.length); g.stories.set(c.name, hits); }
     }
     g.strikes = computeStrikes();
+    computeLanes();
+    buildLanes();
     buildStrikes();
     draw();
     renderChips();
     renderStrikeList();
+    renderLaneList();
   }
 
   // ---------- drawing ----------
 
-  let svg, projection, path, sphere, landLayer, strikeLayer, labelLayer, size = 0;
+  let svg, projection, path, sphere, landLayer, laneLayer, strikeLayer, labelLayer, size = 0;
 
   function el(tag, attrs = {}, parent) {
     const n = document.createElementNS(NS, tag);
@@ -294,14 +310,15 @@
     sphere = el("path", { class: "sphere", fill: "url(#ocean)" }, svg);
     landLayer = el("g", {}, svg);
     for (const c of g.countries) {
-      c.node = el("path", { class: "land" }, landLayer);
+      c.node = el("path", { class: c.dot ? "land tiny-dot" : "land" }, landLayer);
       c.node.dataset.name = c.name;
     }
     el("circle", { class: "shine", fill: "url(#shine)", "pointer-events": "none" }, svg);
+    laneLayer = el("g", { class: "lanes" }, svg);
     strikeLayer = el("g", { class: "strikes" }, svg);
     labelLayer = el("g", { class: "labels", "pointer-events": "none" }, svg);
     projection = d3.geoOrthographic().clipAngle(90).precision(0.6);
-    path = d3.geoPath(projection);
+    path = d3.geoPath(projection).pointRadius(3.5);
     resize();
     bindDrag();
     new ResizeObserver(resize).observe(svg.parentElement);
@@ -360,7 +377,129 @@
       const t = el("text", { x, y, "text-anchor": "middle", dy: "0.35em" }, labelLayer);
       t.textContent = c.display;
     }
+    drawLanes();
     drawStrikes();
+  }
+
+  // ---------- shipping lanes ----------
+  // Tankers and cargo ships sailing through the Strait of Hormuz and the Red Sea. When the news
+  // reports trouble there (a seizure, an attack, a closure) the strait lights up red.
+
+  const LANE_MODES = new Set(["explore", "conflict", "markets"]);
+  const LANES = [
+    { key: "hormuz", name: "Strait of Hormuz", at: [56.45, 26.45], ships: 7,
+      route: [[50.3, 26.9], [51.8, 26.6], [53.6, 26.1], [55.3, 26.35], [56.45, 26.45], [57.2, 25.7], [58.4, 24.6], [60.2, 23.6], [62.5, 22.6]],
+      re: /\bhormuz\b|\b(gulf of oman|persian gulf)\b|\b(tankers?|oil ships?|shipping|vessels?|ships?)\b[^.]{0,80}\b(iran|persian gulf|arabian gulf|gulf of oman|oman|uae|emirati|fujairah|bandar abbas)\b|\b(iran\w*|irgc|revolutionary guards?)\b[^.]{0,80}\b(tankers?|ships?|vessels?|shipping)\b/i,
+      blurb: "About a fifth of the world's oil passes through this narrow channel between Iran and Oman." },
+    { key: "redsea", name: "Red Sea", at: [43.4, 12.6], ships: 6,
+      route: [[32.55, 29.9], [33.6, 28.1], [35.6, 25.6], [37.9, 21.8], [40.1, 18.0], [41.9, 14.9], [43.4, 12.6], [45.4, 12.1], [48.5, 12.6], [51.5, 12.8]],
+      re: /\bred sea\b|\bbab[ -]el[ -]mandeb\b|\bbab al[ -]mandab\b|\bgulf of aden\b|\bsuez\b|\b(houthis?)\b[^.]{0,80}\b(ships?|vessels?|tankers?|shipping|freighters?)\b|\b(ships?|vessels?|tankers?|shipping|freighters?)\b[^.]{0,80}\bhouthis?\b/i,
+      blurb: "Ships between Asia and Europe use this route to reach the Suez Canal." },
+  ];
+  const TROUBLE = /\b(seiz\w*|attack\w*|struck|strikes?|missiles?|drones?|explosions?|blasts?|hit|fire[ds]?|mines?|hijack\w*|detain\w*|board(ed|ing)|threat\w*|clos(e|es|ed|ure|ing)|block\w*|shut\w*|halt\w*|sink\w*|sank|damaged)\b/i;
+  const CLOSED = /\b(clos(e[sd]?|ure|ing)|block(s|ed|ade|ing)?|shut(s|ting)?( down)?|halt(s|ed)?)\b/i;
+  const showLanes = () => LANE_MODES.has(g.mode);
+
+  function computeLanes() {
+    const stories = worldStories().slice().sort((a, b) => new Date(b.item.published || 0) - new Date(a.item.published || 0));
+    for (const lane of LANES) {
+      lane.news = stories.filter(({ item }) => lane.re.test(`${item.title} ${item.summary || ""}`));
+      const top = lane.news[0]?.item;
+      const text = top ? `${top.title} ${top.summary || ""}` : "";
+      lane.state = !top ? "calm" : TROUBLE.test(text) ? (CLOSED.test(text) ? "closed" : "alert") : "news";
+      if (!lane.lengths) {
+        lane.lengths = lane.route.slice(1).map((p, i) => d3.geoDistance(lane.route[i], p));
+        lane.total = d3.sum(lane.lengths);
+      }
+    }
+  }
+
+  // Point and heading at fraction f (0..1) along a lane.
+  function along(lane, f) {
+    let d = f * lane.total;
+    for (let i = 0; i < lane.lengths.length; i++) {
+      if (d <= lane.lengths[i] || i === lane.lengths.length - 1) {
+        const t = Math.min(1, d / lane.lengths[i]);
+        return { p: d3.geoInterpolate(lane.route[i], lane.route[i + 1])(t), a: lane.route[i], b: lane.route[i + 1] };
+      }
+      d -= lane.lengths[i];
+    }
+  }
+
+  function buildLanes() {
+    laneLayer.innerHTML = "";
+    if (!showLanes()) return;
+    LANES.forEach((lane, li) => {
+      const grp = el("g", { class: `lane lane-${lane.state}` }, laneLayer);
+      lane.nodes = {
+        path: el("path", { class: "lane-path" }, grp),
+        ships: d3.range(lane.ships).map((k) => el("path", { class: k % 3 === 0 ? "ship tanker" : "ship" }, grp)),
+        zone: el("circle", { class: "lane-zone" }, grp),
+        dot: el("circle", { class: "lane-dot", r: 3.2 }, grp),
+        hit: el("circle", { class: "strike-hit", r: 9, "data-lane": li }, grp),
+      };
+    });
+  }
+
+  function drawLanes(now = performance.now()) {
+    if (!laneLayer || !showLanes()) return;
+    const center = [-g.rotate[0], -g.rotate[1]], still = calm();
+    const seen = (ll) => d3.geoDistance(ll, center) < Math.PI / 2 - 0.02;
+    const k = Math.min(1.6, 0.6 + g.zoom * 0.15);
+    for (const lane of LANES) {
+      const n = lane.nodes;
+      if (!n) continue;
+      n.path.setAttribute("d", path({ type: "LineString", coordinates: lane.route }) || "");
+      // Ships half go out, half come in; they crawl when the strait is reported closed.
+      const speed = lane.state === "closed" ? 0.004 : 0.022;
+      n.ships.forEach((ship, i) => {
+        const out = i % 2 === 0;
+        let f = ((still ? 0 : now / 1000 * speed) + i / lane.ships) % 1;
+        if (!out) f = 1 - f;
+        const { p, a, b } = along(lane, f);
+        if (!seen(p)) { ship.setAttribute("opacity", 0); return; }
+        const [x, y] = projection(p), [ax, ay] = projection(a), [bx, by] = projection(b);
+        const ang = Math.atan2(by - ay, bx - ax) * 180 / Math.PI + (out ? 0 : 180);
+        const fade = Math.min(1, f * 12, (1 - f) * 12);
+        ship.setAttribute("opacity", fade.toFixed(2));
+        ship.setAttribute("d", "M-5,-1.7L2.6,-1.7L5.4,0L2.6,1.7L-5,1.7Z");
+        ship.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${ang.toFixed(0)}) scale(${k.toFixed(2)})`);
+      });
+      const vis = seen(lane.at), [sx, sy] = vis ? projection(lane.at) : [-99, -99];
+      const pulse = still ? 0.5 : (now % 1800) / 1800;
+      for (const c of [n.zone, n.dot, n.hit]) { c.setAttribute("cx", sx); c.setAttribute("cy", sy); }
+      n.zone.setAttribute("r", lane.state === "calm" ? 0 : (6 + pulse * 16) * Math.min(1.6, k));
+      n.zone.setAttribute("opacity", (1 - pulse).toFixed(2));
+      n.dot.setAttribute("opacity", vis && lane.state !== "calm" ? 1 : 0);
+      n.hit.style.display = vis && lane.state !== "calm" ? "" : "none";
+    }
+  }
+
+  const LANE_STATE = { calm: "No news today", news: "In the news", alert: "Trouble reported", closed: "Closure reported" };
+
+  function renderLaneList() {
+    const { esc, timeAgo } = window.NEWS_APP;
+    const box = $("#globe-lanes");
+    if (!showLanes()) { box.innerHTML = ""; box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = `<h3 class="label">Shipping lanes</h3>` + LANES.map((lane, i) => {
+      const top = lane.news[0]?.item;
+      return `<a class="lane-row lane-${lane.state}" href="#" data-lane="${i}">
+        <span class="strike-route"><span class="ship-icon" aria-hidden="true"></span>${esc(lane.name)}<span class="n">${esc(LANE_STATE[lane.state])}</span></span>
+        ${top ? `<span class="strike-title serif">${esc(top.title)}</span>
+        <span class="story-meta">${esc(top.source)} · ${esc(timeAgo(top.published))}${lane.news.length > 1 ? ` · ${lane.news.length} stories` : ""}</span>`
+          : `<span class="muted">${esc(lane.blurb)}</span>`}
+      </a>`;
+    }).join("");
+  }
+
+  function openLane(i) {
+    const lane = LANES[i];
+    if (!lane) return;
+    rotateTo(lane.at);
+    if (g.zoom < 3) setZoom(3);
+    const top = lane.news[0]?.item;
+    if (top) window.NEWS_APP.openStory(top.link);
   }
 
   // ---------- strike animation ----------
@@ -384,7 +523,7 @@
         head: s.origin ? el("circle", { class: "strike-head", r: 3.6 }, grp) : null,
         ring: el("circle", { class: "strike-ring" }, grp),
         core: el("circle", { class: "strike-core" }, grp),
-        hit: el("circle", { class: "strike-hit", r: 14, "data-strike": i }, grp),
+        hit: el("circle", { class: "strike-hit", r: 9, "data-strike": i }, grp),
       };
       s.zoneGeo = d3.geoCircle().center(s.target.p).radius(3)();
       if (s.origin) {
@@ -516,9 +655,16 @@
       const wasTap = start && !start.moved && !pinch;
       pointers.delete(e.pointerId);
       if (wasTap && e.type === "pointerup") {
-        const hit = document.elementFromPoint(e.clientX, e.clientY)?.dataset;
-        if (hit?.strike) openStrike(+hit.strike);
-        else if (hit?.name) openCountry(hit.name);
+        const els = document.elementsFromPoint(e.clientX, e.clientY);
+        const marker = els.find((n) => n.dataset?.strike || n.dataset?.lane);
+        const name = countryAt(e.clientX, e.clientY, els.find((n) => n.dataset?.name)?.dataset.name);
+        // A strike or strait marker wins only for a tap right on it, so countries under it stay tappable.
+        const r = svg.getBoundingClientRect(), k = size / r.width;
+        const onMarker = marker && Math.hypot((e.clientX - r.left) * k - marker.getAttribute("cx"),
+          (e.clientY - r.top) * k - marker.getAttribute("cy")) < 6;
+        if (onMarker || (marker && !name)) {
+          if (marker.dataset.strike) openStrike(+marker.dataset.strike); else openLane(+marker.dataset.lane);
+        } else if (name) openCountry(name);
       }
       if (pointers.size < 2) pinch = null;
       // After a pinch, the finger still down carries on turning from here.
@@ -532,13 +678,40 @@
     svg.addEventListener("dblclick", () => setZoom(g.zoom * 2));
   }
 
+  // Which country a tap meant. Small countries (UAE, Qatar, Lebanon...) are hard to hit with a
+  // finger, so a tap close to one picks it even if it landed on a bigger neighbour or the sea.
+  function countryAt(clientX, clientY, hitName) {
+    const isSmall = (c) => { const [[x0, y0], [x1, y1]] = path.bounds(c.f); return c.tiny || Math.max(x1 - x0, y1 - y0) < 26; };
+    const hitC = hitName && g.countries.find((c) => c.name === hitName);
+    // Over a big country only a tap right next to a small one switches to it.
+    const reach = hitC && !isSmall(hitC) ? 12 : 22;
+    const r = svg.getBoundingClientRect(), k = size / r.width;
+    const x = (clientX - r.left) * k, y = (clientY - r.top) * k;
+    const center = [-g.rotate[0], -g.rotate[1]];
+    let best = null, bestD = Infinity;
+    for (const c of g.countries) {
+      if (d3.geoDistance(c.centroid, center) > Math.PI / 2 - 0.05) continue;
+      const [cx, cy] = projection(c.centroid), d = Math.hypot(cx - x, cy - y);
+      if (d < reach * k && d < bestD && isSmall(c)) { best = c.name; bestD = d; }
+    }
+    if (best) return best;
+    if (hitName) return hitName;
+    // A tap on the sea: the nearest country, if it is close.
+    for (const c of g.countries) {
+      if (d3.geoDistance(c.centroid, center) > Math.PI / 2 - 0.05) continue;
+      const [cx, cy] = projection(c.centroid), d = Math.hypot(cx - x, cy - y);
+      if (d < 30 * k && d < bestD) { best = c.name; bestD = d; }
+    }
+    return best;
+  }
+
   // Gentle spin while nobody is touching the globe.
   function spin() {
     if (!g.visible) { g.raf = 0; return; }
     if (Date.now() - g.lastInteract > 4000 && !calm()) {
       g.rotate = [g.rotate[0] + 0.08 / g.zoom, g.rotate[1]];
       draw();
-    } else if (showStrikes() && !calm()) drawStrikes();
+    } else if (!calm() && (showStrikes() || showLanes())) { drawLanes(); drawStrikes(); }
     g.raf = requestAnimationFrame(spin);
   }
 
@@ -585,12 +758,20 @@
     const all = worldStories().filter(({ item }) => mentions(c, item));
     g.open = { country: c.display, stories: all.map(({ item }) => `${item.title} (${item.source})`) };
     $("#sheet-title").textContent = c.display;
+    const fact = g.facts?.[name];
+    const about = fact ? `<div class="country-about">
+        <h3 class="label">About ${esc(c.display)}</h3>
+        <p>${esc(fact.about)}</p>
+        <p class="country-facts"><span>Capital <b>${esc(fact.capital)}</b></span><span>Population <b>${esc(fact.population)}</b></span></p>
+      </div>` : "";
     $("#sheet-body").innerHTML = `<p class="muted">${all.length ? `${all.length} ${all.length === 1 ? "story" : "stories"} today` : "No stories mention it today."}</p>
+      ${all.length ? "" : about}
       <div class="sheet-list">${all.map(({ item, key }) => `
         <a class="sheet-story" href="#" data-story="${esc(item.link)}" style="--tc:${look(key).color}">
           <span class="story-meta"><span class="dot"></span>${esc(look(key).short)} · ${esc(item.source)} · ${esc(timeAgo(item.published))}</span>
           <span class="serif">${esc(item.title)}</span>
         </a>`).join("")}</div>
+      ${all.length ? about : ""}
       <a class="more-news" href="https://news.google.com/search?q=${encodeURIComponent(c.display)}" target="_blank" rel="noopener noreferrer">More ${esc(c.display)} news on Google News ›</a>
       <button class="primary wide chat-only" data-country-brief="${esc(c.display)}">✦ Ask Claude about ${esc(c.display)}</button>`;
     $("#sheet").hidden = false;
@@ -605,7 +786,8 @@
     const top = [...g.counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)
       .map(([name, n]) => `${byName.get(name)} (${n})`);
     const strikes = g.strikes.map((s) => `${s.origin ? `${s.origin.c.display} -> ` : ""}${s.target.c.display}: ${s.item.title}`);
-    return { mode: mode.label, countries: top, strikes, open: g.open };
+    const lanes = LANES.map((l) => `${l.name}: ${LANE_STATE[l.state]}${l.news[0] ? ` (${l.news[0].item.title})` : ""}`);
+    return { mode: mode.label, countries: top, strikes, lanes, open: g.open };
   };
 
   document.addEventListener("click", (e) => {
@@ -615,6 +797,8 @@
     if (mode) { g.mode = mode.dataset.mode; renderModes(); compute(); return; }
     const row = e.target.closest(".strike-row");
     if (row) { e.preventDefault(); openStrike(+row.dataset.strike); return; }
+    const laneRow = e.target.closest(".lane-row");
+    if (laneRow) { e.preventDefault(); openLane(+laneRow.dataset.lane); return; }
     const chip = e.target.closest("[data-country]");
     if (chip) { openCountry(chip.dataset.country); return; }
     const brief = e.target.closest("[data-country-brief]");

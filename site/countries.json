@@ -1,0 +1,907 @@
+{
+"Fiji": {
+"capital": "Suva",
+"population": "0.9 million",
+"about": "A South Pacific nation of more than 300 islands, best known for reefs, rugby and tourism. Sugar exports and visitors drive the economy, and Fiji is a leading voice on climate change and rising seas."
+},
+"Tanzania": {
+"capital": "Dodoma",
+"population": "67 million",
+"about": "An East African country home to Mount Kilimanjaro, the Serengeti and the island of Zanzibar. Farming, gold mining and safari tourism are its main earners, and Dar es Salaam is one of the region's busiest ports."
+},
+"W. Sahara": {
+"capital": "Laayoune (disputed)",
+"population": "0.6 million",
+"about": "A sparsely populated desert territory on Africa's Atlantic coast whose status is disputed. Morocco controls most of it, while the Polisario Front seeks independence; phosphate and fishing are its main resources."
+},
+"Canada": {
+"capital": "Ottawa",
+"population": "41 million",
+"about": "The world's second-largest country by area, stretching from the Atlantic to the Pacific and up into the Arctic. It is a major exporter of oil, gas, minerals and grain, and most of its trade goes to the United States."
+},
+"United States of America": {
+"capital": "Washington, D.C.",
+"population": "335 million",
+"about": "The world's largest economy and leading military power, made up of 50 states. Its decisions on trade, interest rates and foreign policy move markets and shape events around the globe."
+},
+"Kazakhstan": {
+"capital": "Astana",
+"population": "20 million",
+"about": "The largest landlocked country in the world, in Central Asia between Russia and China. It is rich in oil, gas and uranium, and is a key link in overland trade routes between Europe and Asia."
+},
+"Uzbekistan": {
+"capital": "Tashkent",
+"population": "36 million",
+"about": "Central Asia's most populous country, home to the Silk Road cities of Samarkand and Bukhara. It produces cotton, gold and natural gas, and has been opening up its economy since 2016."
+},
+"Papua New Guinea": {
+"capital": "Port Moresby",
+"population": "10 million",
+"about": "A rugged, mountainous country on the eastern half of New Guinea island with over 800 languages. It exports liquefied natural gas, gold and copper, and much of the population lives in rural villages."
+},
+"Indonesia": {
+"capital": "Jakarta (moving to Nusantara)",
+"population": "280 million",
+"about": "The world's largest island nation and its biggest Muslim-majority country, spread over 17,000 islands. A fast-growing economy, it is a top producer of nickel, coal and palm oil."
+},
+"Argentina": {
+"capital": "Buenos Aires",
+"population": "46 million",
+"about": "South America's second-largest country, running from subtropical north to Patagonia in the south. A big exporter of soy, beef and wheat, it has a long history of inflation and debt crises."
+},
+"Chile": {
+"capital": "Santiago",
+"population": "20 million",
+"about": "A long, narrow country squeezed between the Andes and the Pacific. It is the world's largest copper producer and a major source of lithium, and is known for stable institutions in the region."
+},
+"Dem. Rep. Congo": {
+"capital": "Kinshasa",
+"population": "105 million",
+"about": "A vast Central African country with huge reserves of cobalt, copper and other minerals used in batteries. Its eastern provinces have suffered decades of conflict involving armed groups."
+},
+"Somalia": {
+"capital": "Mogadishu",
+"population": "18 million",
+"about": "A country on the Horn of Africa with the longest coastline on the African mainland. It has been rebuilding after decades of civil war and still faces attacks by the al-Shabaab militant group."
+},
+"Kenya": {
+"capital": "Nairobi",
+"population": "56 million",
+"about": "East Africa's main business hub, known for tea, flowers, safaris and long-distance runners. Nairobi hosts many international organisations, and the country leads Africa in mobile money."
+},
+"Sudan": {
+"capital": "Khartoum",
+"population": "48 million",
+"about": "A large country on the Nile in northeast Africa. Since April 2023 a war between the army and the Rapid Support Forces has caused one of the world's worst humanitarian crises."
+},
+"Chad": {
+"capital": "N'Djamena",
+"population": "19 million",
+"about": "A landlocked country in north-central Africa spanning Saharan desert and Sahel. It exports oil, hosts many refugees from neighbouring Sudan, and is among the world's poorest countries."
+},
+"Haiti": {
+"capital": "Port-au-Prince",
+"population": "12 million",
+"about": "A Caribbean nation on the western part of Hispaniola, the first in the region to win independence (1804). It struggles with poverty, natural disasters and armed gangs that control much of the capital."
+},
+"Dominican Rep.": {
+"capital": "Santo Domingo",
+"population": "11 million",
+"about": "A Caribbean country sharing Hispaniola with Haiti, and one of the region's fastest-growing economies. Tourism, mining and money sent home by workers abroad are its main income."
+},
+"Russia": {
+"capital": "Moscow",
+"population": "144 million",
+"about": "The world's largest country, spanning eleven time zones across Europe and Asia. A major oil, gas and grain exporter with a large nuclear arsenal, it has been at war with Ukraine since its full-scale invasion in 2022."
+},
+"Bahamas": {
+"capital": "Nassau",
+"population": "0.4 million",
+"about": "An Atlantic chain of about 700 islands just off Florida. Tourism and offshore finance make it one of the richer countries in the Caribbean."
+},
+"Falkland Is.": {
+"capital": "Stanley",
+"population": "3,700",
+"about": "A British overseas territory in the South Atlantic, also claimed by Argentina, which calls them the Malvinas. Fishing licences and sheep farming support the small population."
+},
+"Norway": {
+"capital": "Oslo",
+"population": "5.5 million",
+"about": "A Nordic country of fjords and mountains, one of the world's richest thanks to North Sea oil and gas. Its sovereign wealth fund is the largest in the world."
+},
+"Greenland": {
+"capital": "Nuuk",
+"population": "57,000",
+"about": "The world's largest island, a self-governing territory of Denmark that is mostly covered by ice. Its location in the Arctic and its minerals have drawn growing interest from the United States and others."
+},
+"Fr. S. Antarctic Lands": {
+"capital": "None (administered from Réunion)",
+"population": "No permanent residents",
+"about": "Remote French islands in the southern Indian Ocean used for scientific research and fishing. Only researchers and military staff stay there."
+},
+"Timor-Leste": {
+"capital": "Dili",
+"population": "1.4 million",
+"about": "A young Southeast Asian nation on the eastern half of Timor island, independent since 2002. Oil and gas revenues fund most of its government."
+},
+"South Africa": {
+"capital": "Pretoria (executive)",
+"population": "63 million",
+"about": "Africa's most industrialised economy, rich in gold, platinum and coal. Apartheid ended in 1994, and the country now struggles with high unemployment and power shortages."
+},
+"Lesotho": {
+"capital": "Maseru",
+"population": "2.3 million",
+"about": "A small mountain kingdom entirely surrounded by South Africa. It sells water and electricity to its neighbour, and textiles are a key export."
+},
+"Mexico": {
+"capital": "Mexico City",
+"population": "130 million",
+"about": "A large Latin American country and now the United States' biggest trading partner. Manufacturing, oil and tourism are key, while drug cartel violence remains a major challenge."
+},
+"Uruguay": {
+"capital": "Montevideo",
+"population": "3.4 million",
+"about": "A small, stable South American country between Brazil and Argentina. It exports beef and soy and is known for strong democracy and clean energy."
+},
+"Brazil": {
+"capital": "Brasília",
+"population": "212 million",
+"about": "Latin America's largest country and economy, home to most of the Amazon rainforest. It is a farm superpower in soy, coffee, sugar and beef, and a big producer of iron ore and oil."
+},
+"Bolivia": {
+"capital": "Sucre (constitutional), La Paz (government)",
+"population": "12 million",
+"about": "A landlocked Andean country with a large Indigenous population. It holds huge lithium reserves and exports natural gas and minerals."
+},
+"Peru": {
+"capital": "Lima",
+"population": "34 million",
+"about": "An Andean country home to Machu Picchu and part of the Amazon. It is one of the world's top copper and silver producers and has had frequent changes of president."
+},
+"Colombia": {
+"capital": "Bogotá",
+"population": "53 million",
+"about": "A South American country with coasts on both the Caribbean and the Pacific. It exports oil, coal, coffee and flowers, and is still working to end decades of armed conflict."
+},
+"Panama": {
+"capital": "Panama City",
+"population": "4.5 million",
+"about": "The narrow country linking Central and South America, home to the Panama Canal. Canal fees, shipping, banking and logistics dominate its economy."
+},
+"Costa Rica": {
+"capital": "San José",
+"population": "5.2 million",
+"about": "A Central American country famous for rainforests and protecting nature. It abolished its army in 1948 and exports medical devices, bananas and pineapples."
+},
+"Nicaragua": {
+"capital": "Managua",
+"population": "7 million",
+"about": "The largest country in Central America by area, with lakes and volcanoes. It is run by President Daniel Ortega's government, which has cracked down on opponents."
+},
+"Honduras": {
+"capital": "Tegucigalpa",
+"population": "10.5 million",
+"about": "A Central American country exporting coffee, bananas and clothing. It faces high poverty and violence, and many people migrate north."
+},
+"El Salvador": {
+"capital": "San Salvador",
+"population": "6.3 million",
+"about": "Central America's smallest country, on the Pacific coast. A harsh crackdown on gangs sharply lowered murders, and it made Bitcoin legal tender in 2021."
+},
+"Guatemala": {
+"capital": "Guatemala City",
+"population": "18 million",
+"about": "Central America's most populous country, with a large Maya Indigenous population. It exports coffee, sugar and bananas."
+},
+"Belize": {
+"capital": "Belmopan",
+"population": "0.4 million",
+"about": "A small English-speaking country on Central America's Caribbean coast. Its barrier reef and Maya ruins draw tourists."
+},
+"Venezuela": {
+"capital": "Caracas",
+"population": "28 million",
+"about": "A South American country with the world's largest proven oil reserves. Economic collapse and political crisis have pushed millions of people to leave since the mid-2010s."
+},
+"Guyana": {
+"capital": "Georgetown",
+"population": "0.8 million",
+"about": "A small English-speaking country on South America's north coast. Big offshore oil finds since 2015 have made it one of the fastest-growing economies in the world."
+},
+"Suriname": {
+"capital": "Paramaribo",
+"population": "0.6 million",
+"about": "South America's smallest country, a former Dutch colony covered mostly by rainforest. It exports gold and has new offshore oil prospects."
+},
+"France": {
+"capital": "Paris",
+"population": "68 million",
+"about": "A leading European power and a founding member of the EU, with a permanent UN Security Council seat and nuclear weapons. It is the world's most visited country and a big maker of aircraft, luxury goods and wine."
+},
+"Ecuador": {
+"capital": "Quito",
+"population": "18 million",
+"about": "An Andean country on the equator that owns the Galápagos Islands. It exports oil, bananas and shrimp, uses the US dollar, and has faced a surge in gang violence."
+},
+"Puerto Rico": {
+"capital": "San Juan",
+"population": "3.2 million",
+"about": "A Caribbean island that is a US territory; its people are US citizens. Pharmaceutical manufacturing and tourism are major industries."
+},
+"Jamaica": {
+"capital": "Kingston",
+"population": "2.8 million",
+"about": "A Caribbean island famous for reggae music, sprinters and coffee. Tourism and bauxite mining are its biggest earners."
+},
+"Cuba": {
+"capital": "Havana",
+"population": "11 million",
+"about": "The largest Caribbean island, under a communist government since 1959. Under a long US embargo, it faces shortages of food, fuel and power."
+},
+"Zimbabwe": {
+"capital": "Harare",
+"population": "16 million",
+"about": "A landlocked country in southern Africa, home to Victoria Falls and the ruins of Great Zimbabwe. It mines gold, platinum and lithium, and has suffered years of hyperinflation."
+},
+"Botswana": {
+"capital": "Gaborone",
+"population": "2.5 million",
+"about": "A stable, democratic southern African country and one of the world's top diamond producers. It is also known for wildlife reserves like the Okavango Delta."
+},
+"Namibia": {
+"capital": "Windhoek",
+"population": "3 million",
+"about": "A desert country on Africa's southwest coast, one of the least densely populated places on earth. It mines uranium and diamonds and is developing green hydrogen."
+},
+"Senegal": {
+"capital": "Dakar",
+"population": "18 million",
+"about": "A West African country known for its stable democracy. It recently began producing offshore oil and gas, and Dakar is a regional hub."
+},
+"Mali": {
+"capital": "Bamako",
+"population": "23 million",
+"about": "A large landlocked country in West Africa's Sahel, ruled by a military government since 2020. It produces gold and cotton and is fighting jihadist insurgents."
+},
+"Mauritania": {
+"capital": "Nouakchott",
+"population": "5 million",
+"about": "A mostly desert country in northwest Africa linking the Arab world and sub-Saharan Africa. It exports iron ore, fish and gold, and is starting offshore gas production."
+},
+"Benin": {
+"capital": "Porto-Novo",
+"population": "14 million",
+"about": "A narrow West African country on the Gulf of Guinea. Cotton and trade through the port of Cotonou are central to its economy."
+},
+"Niger": {
+"capital": "Niamey",
+"population": "27 million",
+"about": "A vast Sahel country with one of the world's fastest-growing populations. A major uranium producer, it has been under military rule since a 2023 coup."
+},
+"Nigeria": {
+"capital": "Abuja",
+"population": "225 million",
+"about": "Africa's most populous country and one of its biggest oil producers. Lagos is a booming tech and music hub, while security threats persist in the north."
+},
+"Cameroon": {
+"capital": "Yaoundé",
+"population": "29 million",
+"about": "A Central African country with French- and English-speaking regions. It exports oil, cocoa and timber, and faces a separatist conflict in its English-speaking west."
+},
+"Togo": {
+"capital": "Lomé",
+"population": "9 million",
+"about": "A small, narrow West African country whose deep-water port at Lomé is a major regional shipping hub. It also exports phosphates."
+},
+"Ghana": {
+"capital": "Accra",
+"population": "34 million",
+"about": "A West African country seen as one of the region's steadier democracies. It is a top producer of gold and cocoa and also pumps oil."
+},
+"Côte d'Ivoire": {
+"capital": "Yamoussoukro (official), Abidjan (economic)",
+"population": "31 million",
+"about": "The world's largest cocoa producer, on West Africa's coast. Abidjan is a major business centre for French-speaking Africa."
+},
+"Guinea": {
+"capital": "Conakry",
+"population": "14 million",
+"about": "A West African country holding the world's largest bauxite reserves and the huge Simandou iron ore deposit. It is under a military government since 2021."
+},
+"Guinea-Bissau": {
+"capital": "Bissau",
+"population": "2.2 million",
+"about": "A small West African country exporting cashew nuts. It has had many coups and has been used as a transit point for drug trafficking."
+},
+"Liberia": {
+"capital": "Monrovia",
+"population": "5.5 million",
+"about": "A West African country founded with freed American slaves in the 1800s. It is rebuilding after civil wars, and its flag is used by a large share of the world's ships."
+},
+"Sierra Leone": {
+"capital": "Freetown",
+"population": "8.6 million",
+"about": "A West African country known for diamonds and its natural harbour at Freetown. It is still recovering from civil war and the Ebola outbreak."
+},
+"Burkina Faso": {
+"capital": "Ouagadougou",
+"population": "23 million",
+"about": "A landlocked Sahel country under military rule since 2022. Gold is its main export, and jihadist attacks have displaced millions of people."
+},
+"Central African Rep.": {
+"capital": "Bangui",
+"population": "5.5 million",
+"about": "A landlocked country at the heart of Africa with diamonds, gold and timber. Years of conflict have left it among the poorest countries in the world."
+},
+"Congo": {
+"capital": "Brazzaville",
+"population": "6 million",
+"about": "A Central African country on the Congo River, across from Kinshasa. Oil makes up most of its exports."
+},
+"Gabon": {
+"capital": "Libreville",
+"population": "2.4 million",
+"about": "An oil-rich Central African country, mostly covered by rainforest. The military took power in 2023, ending the Bongo family's long rule."
+},
+"Eq. Guinea": {
+"capital": "Malabo",
+"population": "1.7 million",
+"about": "A small Central African country with a mainland part and islands. Oil and gas made it wealthy on paper, but most people remain poor."
+},
+"Zambia": {
+"capital": "Lusaka",
+"population": "21 million",
+"about": "A landlocked southern African country and one of Africa's biggest copper producers. It shares Victoria Falls with Zimbabwe."
+},
+"Malawi": {
+"capital": "Lilongwe",
+"population": "21 million",
+"about": "A narrow, landlocked country in southeast Africa built around Lake Malawi. Most people farm, and tobacco is the main export."
+},
+"Mozambique": {
+"capital": "Maputo",
+"population": "34 million",
+"about": "A country on Africa's southeast coast with large offshore gas fields. An insurgency in the northern Cabo Delgado province has delayed big gas projects."
+},
+"eSwatini": {
+"capital": "Mbabane (administrative)",
+"population": "1.2 million",
+"about": "A small landlocked kingdom between South Africa and Mozambique, one of the last absolute monarchies. Sugar is a key export."
+},
+"Angola": {
+"capital": "Luanda",
+"population": "37 million",
+"about": "A southern African country and one of Africa's largest oil producers. It also mines diamonds and is investing in the Lobito rail corridor."
+},
+"Burundi": {
+"capital": "Gitega",
+"population": "13 million",
+"about": "A small, densely populated country in East Africa's Great Lakes region. It is among the poorest countries in the world, relying on coffee and tea."
+},
+"Israel": {
+"capital": "Jerusalem (disputed)",
+"population": "10 million",
+"about": "A Middle Eastern country on the Mediterranean with a strong tech sector and military. Its conflict with the Palestinians and wars with Hamas, Hezbollah and Iran dominate regional news."
+},
+"Lebanon": {
+"capital": "Beirut",
+"population": "5.8 million",
+"about": "A small Mediterranean country with a mix of religious communities. It has endured a deep financial collapse since 2019 and conflict between Israel and Hezbollah."
+},
+"Madagascar": {
+"capital": "Antananarivo",
+"population": "31 million",
+"about": "The world's fourth-largest island, off Africa's east coast, famous for wildlife found nowhere else. It is the top producer of vanilla."
+},
+"Palestine": {
+"capital": "Ramallah (administrative)",
+"population": "5.5 million",
+"about": "Made up of the Gaza Strip and the Israeli-occupied West Bank. Gaza has been devastated by war since October 2023, and Palestinians seek an independent state."
+},
+"Gambia": {
+"capital": "Banjul",
+"population": "2.8 million",
+"about": "Mainland Africa's smallest country, a thin strip along the Gambia River surrounded by Senegal. Tourism and peanuts are important."
+},
+"Tunisia": {
+"capital": "Tunis",
+"population": "12 million",
+"about": "A North African country on the Mediterranean where the 2011 Arab Spring began. Tourism, olive oil and car parts are major earners."
+},
+"Algeria": {
+"capital": "Algiers",
+"population": "47 million",
+"about": "Africa's largest country by area, mostly Sahara desert. It is a big natural gas supplier to Europe."
+},
+"Jordan": {
+"capital": "Amman",
+"population": "11.5 million",
+"about": "A Middle Eastern kingdom with few resources but a key role in regional diplomacy. It hosts many Palestinian and Syrian refugees and the ancient city of Petra."
+},
+"United Arab Emirates": {
+"capital": "Abu Dhabi",
+"population": "10 million",
+"about": "A federation of seven emirates on the Gulf, including Abu Dhabi and Dubai. Oil wealth and its role as a global hub for trade, travel and finance make it one of the richest countries in the region. Most residents are foreign workers."
+},
+"Qatar": {
+"capital": "Doha",
+"population": "3 million",
+"about": "A small, very rich Gulf peninsula with some of the world's largest gas reserves. It is a major exporter of liquefied natural gas and often mediates in regional conflicts."
+},
+"Kuwait": {
+"capital": "Kuwait City",
+"population": "4.9 million",
+"about": "A small oil-rich Gulf country at the top of the Gulf, between Iraq and Saudi Arabia. Oil provides nearly all government income."
+},
+"Iraq": {
+"capital": "Baghdad",
+"population": "46 million",
+"about": "A Middle Eastern country between the Tigris and Euphrates rivers, cradle of ancient Mesopotamia. It is a major oil producer still rebuilding after decades of war."
+},
+"Oman": {
+"capital": "Muscat",
+"population": "5 million",
+"about": "A Gulf sultanate on the Arabian Peninsula's southeast coast, guarding the southern side of the Strait of Hormuz. It exports oil and gas and often acts as a quiet mediator."
+},
+"Vanuatu": {
+"capital": "Port Vila",
+"population": "0.3 million",
+"about": "A South Pacific nation of about 80 islands. It relies on tourism and farming and is very exposed to cyclones."
+},
+"Cambodia": {
+"capital": "Phnom Penh",
+"population": "17 million",
+"about": "A Southeast Asian country home to the temples of Angkor Wat. Clothing exports and tourism drive its economy."
+},
+"Thailand": {
+"capital": "Bangkok",
+"population": "72 million",
+"about": "A Southeast Asian kingdom known for tourism and a strong car and electronics manufacturing base. Its politics swing between elected governments and military influence."
+},
+"Laos": {
+"capital": "Vientiane",
+"population": "7.7 million",
+"about": "A landlocked communist country in Southeast Asia on the Mekong River. It builds dams to sell power to neighbours and carries heavy debt to China."
+},
+"Myanmar": {
+"capital": "Naypyidaw",
+"population": "55 million",
+"about": "A Southeast Asian country between India and China. Since a 2021 military coup it has been in civil war between the army and resistance groups."
+},
+"Vietnam": {
+"capital": "Hanoi",
+"population": "101 million",
+"about": "A fast-growing communist country in Southeast Asia and a major manufacturing hub for electronics and clothing. It is a top exporter to the United States."
+},
+"North Korea": {
+"capital": "Pyongyang",
+"population": "26 million",
+"about": "A secretive communist state ruled by the Kim family. It develops nuclear weapons and missiles and is under heavy international sanctions."
+},
+"South Korea": {
+"capital": "Seoul",
+"population": "52 million",
+"about": "An advanced East Asian economy known for Samsung, Hyundai, chips and K-pop. It remains technically at war with North Korea."
+},
+"Mongolia": {
+"capital": "Ulaanbaatar",
+"population": "3.5 million",
+"about": "A vast, thinly populated country between Russia and China, known for steppe and nomadic herding. Coal and copper exports, mostly to China, fuel its economy."
+},
+"India": {
+"capital": "New Delhi",
+"population": "1.45 billion",
+"about": "The world's most populous country and its largest democracy. One of the fastest-growing big economies, it is strong in software services, medicines and manufacturing."
+},
+"Bangladesh": {
+"capital": "Dhaka",
+"population": "173 million",
+"about": "A densely populated South Asian country on the Ganges delta. It is the world's second-largest clothing exporter, and an interim government took over after mass protests in 2024."
+},
+"Bhutan": {
+"capital": "Thimphu",
+"population": "0.8 million",
+"about": "A small Himalayan kingdom that measures success by 'Gross National Happiness'. It sells hydropower to India and limits tourism."
+},
+"Nepal": {
+"capital": "Kathmandu",
+"population": "30 million",
+"about": "A Himalayan country between India and China, home to Mount Everest. Tourism and money sent home by workers abroad support the economy."
+},
+"Pakistan": {
+"capital": "Islamabad",
+"population": "245 million",
+"about": "A nuclear-armed South Asian country with a large young population. It has long-running tensions with India and Afghanistan and relies on IMF support."
+},
+"Afghanistan": {
+"capital": "Kabul",
+"population": "42 million",
+"about": "A landlocked country at the crossroads of Central and South Asia, ruled by the Taliban since 2021. It faces a deep humanitarian crisis and strict limits on women's rights."
+},
+"Tajikistan": {
+"capital": "Dushanbe",
+"population": "10 million",
+"about": "A mountainous Central Asian country, once part of the Soviet Union. Aluminium, cotton and money sent home from Russia are key to its economy."
+},
+"Kyrgyzstan": {
+"capital": "Bishkek",
+"population": "7 million",
+"about": "A mountainous Central Asian country with gold mining and a growing role in trade between China and Russia."
+},
+"Turkmenistan": {
+"capital": "Ashgabat",
+"population": "7 million",
+"about": "A secretive Central Asian state with some of the world's largest natural gas reserves, sold mainly to China."
+},
+"Iran": {
+"capital": "Tehran",
+"population": "91 million",
+"about": "A large Middle Eastern country with major oil and gas reserves, governed as an Islamic republic since 1979. Its nuclear programme and rivalry with Israel and the US keep it at the centre of regional tension. It controls the northern side of the Strait of Hormuz."
+},
+"Syria": {
+"capital": "Damascus",
+"population": "24 million",
+"about": "A Middle Eastern country devastated by civil war from 2011. The Assad government fell in December 2024, and a new government is trying to rebuild."
+},
+"Armenia": {
+"capital": "Yerevan",
+"population": "3 million",
+"about": "A small landlocked country in the South Caucasus, one of the first to adopt Christianity. It has a long conflict with Azerbaijan."
+},
+"Sweden": {
+"capital": "Stockholm",
+"population": "10.6 million",
+"about": "A Nordic country known for its welfare state and companies like IKEA, Volvo and Spotify. It joined NATO in 2024."
+},
+"Belarus": {
+"capital": "Minsk",
+"population": "9 million",
+"about": "An Eastern European country closely allied with Russia, ruled by Alexander Lukashenko since 1994."
+},
+"Ukraine": {
+"capital": "Kyiv",
+"population": "33 million (est., wartime)",
+"about": "Europe's second-largest country, a major grain exporter. It has been defending itself against Russia's full-scale invasion since February 2022."
+},
+"Poland": {
+"capital": "Warsaw",
+"population": "37 million",
+"about": "A Central European EU member and one of its fastest-growing economies. It is a key NATO ally on the border with Ukraine and Belarus."
+},
+"Austria": {
+"capital": "Vienna",
+"population": "9 million",
+"about": "An Alpine EU country known for music, skiing and a high standard of living. Vienna hosts the UN atomic agency and OPEC."
+},
+"Hungary": {
+"capital": "Budapest",
+"population": "9.6 million",
+"about": "A Central European EU member led for many years by Viktor Orbán, who often clashes with Brussels."
+},
+"Moldova": {
+"capital": "Chișinău",
+"population": "2.4 million",
+"about": "A small country between Romania and Ukraine seeking to join the EU. A Russian-backed breakaway region, Transnistria, sits on its eastern edge."
+},
+"Romania": {
+"capital": "Bucharest",
+"population": "19 million",
+"about": "An EU and NATO member on the Black Sea with a growing tech sector and gas reserves."
+},
+"Lithuania": {
+"capital": "Vilnius",
+"population": "2.9 million",
+"about": "The largest of the three Baltic states, an EU and NATO member wary of neighbouring Russia and Belarus."
+},
+"Latvia": {
+"capital": "Riga",
+"population": "1.9 million",
+"about": "A Baltic EU and NATO member with forests, ports and a sizeable Russian-speaking minority."
+},
+"Estonia": {
+"capital": "Tallinn",
+"population": "1.4 million",
+"about": "A small Baltic country known as one of the world's most digital societies, birthplace of Skype."
+},
+"Germany": {
+"capital": "Berlin",
+"population": "84 million",
+"about": "Europe's largest economy, known for cars, machinery and chemicals. It is a leading voice in the EU."
+},
+"Bulgaria": {
+"capital": "Sofia",
+"population": "6.4 million",
+"about": "An EU and NATO member on the Black Sea, known for rose oil and the Rila Mountains."
+},
+"Greece": {
+"capital": "Athens",
+"population": "10.4 million",
+"about": "A Mediterranean EU country, birthplace of democracy, with thousands of islands. Tourism and shipping are its biggest industries."
+},
+"Turkey": {
+"capital": "Ankara",
+"population": "86 million",
+"about": "A large country spanning Europe and Asia that controls the Bosphorus strait. A NATO member led by Recep Tayyip Erdoğan, it plays a big role in Middle East and Ukraine diplomacy."
+},
+"Albania": {
+"capital": "Tirana",
+"population": "2.4 million",
+"about": "A small Balkan country on the Adriatic, a NATO member hoping to join the EU, with growing tourism."
+},
+"Croatia": {
+"capital": "Zagreb",
+"population": "3.9 million",
+"about": "An EU member on the Adriatic famous for its coastline and islands. It joined the euro in 2023."
+},
+"Switzerland": {
+"capital": "Bern",
+"population": "9 million",
+"about": "A wealthy, neutral Alpine country known for banking, watches, chocolate and medicine makers. Geneva hosts many UN agencies."
+},
+"Luxembourg": {
+"capital": "Luxembourg City",
+"population": "0.7 million",
+"about": "A tiny, very rich EU country and a major centre for investment funds and banking."
+},
+"Belgium": {
+"capital": "Brussels",
+"population": "11.8 million",
+"about": "A small Western European country whose capital hosts the EU's main institutions and NATO headquarters."
+},
+"Netherlands": {
+"capital": "Amsterdam",
+"population": "18 million",
+"about": "A low-lying EU country with Europe's biggest port, Rotterdam. It is home to ASML, maker of key chipmaking machines."
+},
+"Portugal": {
+"capital": "Lisbon",
+"population": "10.6 million",
+"about": "An EU country on the Atlantic edge of Europe, popular for tourism and with a growing tech scene."
+},
+"Spain": {
+"capital": "Madrid",
+"population": "48 million",
+"about": "A large EU country and one of the world's top tourist destinations, also strong in farming and renewable energy."
+},
+"Ireland": {
+"capital": "Dublin",
+"population": "5.3 million",
+"about": "An EU island nation that hosts the European headquarters of many US tech and drug companies."
+},
+"New Caledonia": {
+"capital": "Nouméa",
+"population": "0.27 million",
+"about": "A French territory in the South Pacific with large nickel deposits. Debate over independence from France led to unrest in 2024."
+},
+"Solomon Is.": {
+"capital": "Honiara",
+"population": "0.8 million",
+"about": "A Pacific island nation east of Papua New Guinea, a scene of WWII battles. It switched ties from Taiwan to China in 2019."
+},
+"New Zealand": {
+"capital": "Wellington",
+"population": "5.3 million",
+"about": "A South Pacific nation of two main islands, known for its landscapes, farming exports and Māori culture."
+},
+"Australia": {
+"capital": "Canberra",
+"population": "27 million",
+"about": "A continent-sized country and a major exporter of iron ore, coal, gas and lithium, much of it to China. It is a close US ally."
+},
+"Sri Lanka": {
+"capital": "Colombo (commercial), Sri Jayawardenepura Kotte (official)",
+"population": "22 million",
+"about": "An Indian Ocean island known for tea and tourism. It is recovering from a 2022 economic collapse."
+},
+"China": {
+"capital": "Beijing",
+"population": "1.41 billion",
+"about": "The world's second-largest economy and its biggest manufacturer and exporter. Ruled by the Communist Party, its rivalry with the US over trade, tech and Taiwan shapes world news."
+},
+"Taiwan": {
+"capital": "Taipei",
+"population": "23 million",
+"about": "A self-governing island off China's coast that Beijing claims as its own. It makes most of the world's advanced chips through TSMC."
+},
+"Italy": {
+"capital": "Rome",
+"population": "59 million",
+"about": "A major EU economy known for fashion, food, cars and art. Tourism and manufacturing are both big."
+},
+"Denmark": {
+"capital": "Copenhagen",
+"population": "6 million",
+"about": "A small, wealthy Nordic EU country, home to drugmaker Novo Nordisk and shipping giant Maersk. Greenland is part of its kingdom."
+},
+"United Kingdom": {
+"capital": "London",
+"population": "69 million",
+"about": "An island nation made up of England, Scotland, Wales and Northern Ireland. London is one of the world's top financial centres, and the UK left the EU in 2020."
+},
+"Iceland": {
+"capital": "Reykjavík",
+"population": "0.4 million",
+"about": "A North Atlantic island of volcanoes, glaciers and geothermal power. Fishing and tourism dominate its economy."
+},
+"Azerbaijan": {
+"capital": "Baku",
+"population": "10 million",
+"about": "A South Caucasus country on the Caspian Sea, rich in oil and gas. It retook the Nagorno-Karabakh region from Armenian forces in 2023."
+},
+"Georgia": {
+"capital": "Tbilisi",
+"population": "3.7 million",
+"about": "A South Caucasus country on the Black Sea, known for wine and mountains. Protests have erupted over the government's turn away from the EU toward Russia."
+},
+"Philippines": {
+"capital": "Manila",
+"population": "115 million",
+"about": "A Southeast Asian nation of over 7,000 islands. It has a large outsourcing industry, and its maritime disputes with China in the South China Sea are often in the news."
+},
+"Malaysia": {
+"capital": "Kuala Lumpur",
+"population": "35 million",
+"about": "A Southeast Asian country split between the Malay Peninsula and Borneo. It is a big exporter of chips, palm oil and gas."
+},
+"Brunei": {
+"capital": "Bandar Seri Begawan",
+"population": "0.45 million",
+"about": "A tiny, oil-rich sultanate on the island of Borneo, ruled by one of the world's longest-reigning monarchs."
+},
+"Slovenia": {
+"capital": "Ljubljana",
+"population": "2.1 million",
+"about": "A small Alpine EU country between Italy and Croatia, with lakes, caves and a strong export industry."
+},
+"Finland": {
+"capital": "Helsinki",
+"population": "5.6 million",
+"about": "A Nordic country of lakes and forests with a long border with Russia. It joined NATO in 2023."
+},
+"Slovakia": {
+"capital": "Bratislava",
+"population": "5.4 million",
+"about": "A Central European EU member that makes more cars per person than any other country."
+},
+"Czechia": {
+"capital": "Prague",
+"population": "10.9 million",
+"about": "A Central European EU member with a strong industrial base, famous for Prague's old town and its beer."
+},
+"Eritrea": {
+"capital": "Asmara",
+"population": "3.7 million",
+"about": "A secretive country on the Red Sea coast of the Horn of Africa, ruled by one leader since independence in 1993."
+},
+"Japan": {
+"capital": "Tokyo",
+"population": "124 million",
+"about": "The world's fourth-largest economy, known for cars, electronics and robotics. Its population is ageing fast."
+},
+"Paraguay": {
+"capital": "Asunción",
+"population": "7 million",
+"about": "A landlocked South American country with cheap hydropower and big soy and beef exports. It is one of the few countries that recognise Taiwan."
+},
+"Yemen": {
+"capital": "Sanaa (held by the Houthis)",
+"population": "35 million",
+"about": "A country at the southern tip of the Arabian Peninsula, at the entrance to the Red Sea. A civil war since 2014 split it between the Iran-backed Houthis and the government, and Houthi attacks on shipping have disrupted world trade."
+},
+"Saudi Arabia": {
+"capital": "Riyadh",
+"population": "35 million",
+"about": "The largest country on the Arabian Peninsula and the world's top oil exporter, home to Islam's holiest cities, Mecca and Medina. It is spending heavily to diversify its economy under Crown Prince Mohammed bin Salman."
+},
+"N. Cyprus": {
+"capital": "North Nicosia",
+"population": "0.4 million",
+"about": "The northern third of Cyprus, a breakaway state recognised only by Turkey since 1983."
+},
+"Cyprus": {
+"capital": "Nicosia",
+"population": "1.3 million",
+"about": "An EU island in the eastern Mediterranean, divided since 1974 between the Greek Cypriot south and a Turkish Cypriot north."
+},
+"Morocco": {
+"capital": "Rabat",
+"population": "38 million",
+"about": "A North African kingdom facing both the Atlantic and Mediterranean, close to Spain. It is a leading phosphate exporter and a growing car maker."
+},
+"Egypt": {
+"capital": "Cairo",
+"population": "110 million",
+"about": "The Arab world's most populous country, home to the pyramids and the Suez Canal. Canal fees, tourism and gas are key, and it is a key mediator on Gaza."
+},
+"Libya": {
+"capital": "Tripoli",
+"population": "7 million",
+"about": "A North African country with Africa's largest oil reserves, split between rival governments in the east and west since 2014."
+},
+"Ethiopia": {
+"capital": "Addis Ababa",
+"population": "130 million",
+"about": "Africa's second most populous country and the seat of the African Union. It is landlocked and has faced several internal conflicts."
+},
+"Djibouti": {
+"capital": "Djibouti",
+"population": "1.1 million",
+"about": "A small country at the mouth of the Red Sea that hosts military bases of the US, China, France and others. Its port serves Ethiopia's trade."
+},
+"Somaliland": {
+"capital": "Hargeisa",
+"population": "5.7 million",
+"about": "A self-declared republic in northern Somalia that has run its own affairs since 1991 but is not widely recognised."
+},
+"Uganda": {
+"capital": "Kampala",
+"population": "50 million",
+"about": "A landlocked East African country at the source of the Nile with a very young population. It is preparing to produce oil."
+},
+"Rwanda": {
+"capital": "Kigali",
+"population": "14 million",
+"about": "A small, hilly East African country rebuilt after the 1994 genocide, known for order and growth. It is accused of backing rebels in eastern Congo."
+},
+"Bosnia and Herz.": {
+"capital": "Sarajevo",
+"population": "3.2 million",
+"about": "A Balkan country divided into two parts after the 1990s war, and a candidate to join the EU."
+},
+"Macedonia": {
+"capital": "Skopje",
+"population": "1.8 million",
+"about": "North Macedonia, a small landlocked Balkan country and NATO member that hopes to join the EU."
+},
+"Serbia": {
+"capital": "Belgrade",
+"population": "6.6 million",
+"about": "The largest country of the western Balkans, balancing ties between the EU, Russia and China."
+},
+"Montenegro": {
+"capital": "Podgorica",
+"population": "0.6 million",
+"about": "A small Balkan country on the Adriatic, a NATO member and leading candidate to join the EU."
+},
+"Kosovo": {
+"capital": "Pristina",
+"population": "1.6 million",
+"about": "A Balkan territory that declared independence from Serbia in 2008, recognised by about 100 countries but not by Serbia."
+},
+"Trinidad and Tobago": {
+"capital": "Port of Spain",
+"population": "1.5 million",
+"about": "A two-island Caribbean nation near Venezuela that exports oil, gas and chemicals, famous for Carnival."
+},
+"S. Sudan": {
+"capital": "Juba",
+"population": "11 million",
+"about": "The world's newest country, independent from Sudan since 2011. Oil is almost all its income, and it has suffered civil war and hunger."
+},
+"Bahrain": {
+"capital": "Manama",
+"population": "1.6 million",
+"about": "A small island kingdom in the Gulf linked to Saudi Arabia by a causeway. It is a regional banking centre and home to the US Navy's Fifth Fleet."
+},
+"Singapore": {
+"capital": "Singapore",
+"population": "6 million",
+"about": "A wealthy city-state at the tip of the Malay Peninsula and one of the world's busiest ports and financial centres."
+},
+"Malta": {
+"capital": "Valletta",
+"population": "0.55 million",
+"about": "A small island EU country in the middle of the Mediterranean, popular for tourism, online gaming and finance."
+},
+"Maldives": {
+"capital": "Malé",
+"population": "0.5 million",
+"about": "An Indian Ocean nation of low coral islands, famous for luxury resorts and threatened by rising seas."
+},
+"Hong Kong": {
+"capital": "Hong Kong",
+"population": "7.5 million",
+"about": "A Chinese special region and major finance hub. Beijing has tightened control there since the 2019 protests."
+}
+}
