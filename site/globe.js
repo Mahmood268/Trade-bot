@@ -1,6 +1,7 @@
 // Globe screen: an orthographic globe (d3-geo + world-atlas, vendored in
 // site/vendor) that lights up the countries in today's stories. Drag to spin,
-// tap a country (or a chip below) to list its stories.
+// tap a country (or a chip below) to list its stories. Missile, drone and air strikes in the
+// headlines are drawn as arcs from where they came from to where they landed.
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const NS = "http://www.w3.org/2000/svg";
@@ -99,7 +100,7 @@
   }
 
   const g = {
-    countries: [], mode: "explore", rotate: [-35, -25], zoom: 1, counts: new Map(), stories: new Map(),
+    countries: [], mode: "explore", rotate: [-35, -25], zoom: 1, counts: new Map(), stories: new Map(), strikes: [],
     dragging: false, lastInteract: 0, raf: 0, ready: false, visible: false,
   };
 
@@ -110,6 +111,122 @@
     return world.map((item) => ({ item, key: item.topics?.[0] || "all" }));
   }
   const mentions = (c, item) => c.res.some((re) => re.test(`${item.title} ${item.summary || ""}`));
+
+  // ---------- strikes ----------
+  // Missile, drone and air strikes worked out from the headlines (and summaries): who fired
+  // (origin) and where it landed (target). Plain word matching, so it can miss or misread some.
+
+  const STRONG = /\b(missiles?|drones?|rockets?|air ?strikes?|airstrikes?|shelling|shelled|bombardment|barrage|artillery|ballistic|warplanes?|projectiles?|intercept(ed|ors?)?)\b|\bunder (\w+ ){0,2}fire\b/i;
+  const WEAK = /\b(strikes?|struck|attacks?|attacked|bomb(s|ed|ing)?|raids?)\b/i;
+  const MILITARY = /\b(military|army|forces|troops|soldiers|kill|killed|kills|killing|dead|deaths?|wounded|injured|casualties|war|jets?|militants?|rebels?|explosions?|blasts?|civilians|houthis?|hezbollah|hamas|idf|retaliat\w*|offensive|ceasefire)\b/i;
+  const NOT_WAR = /\b(workers|unions?|walk-?outs?|wages?|pay|general strike|on strike|strike action|strikers?|goal|match|deal|lightning|hunger strike|heart attack|panic attack|cyber-?attacks?|ransomware|hackers?|shark)\b/i;
+  const isAttack = (s) => !NOT_WAR.test(s) && (STRONG.test(s) || (WEAK.test(s) && MILITARY.test(s)));
+
+  const MOD = "(?:(?:the|a|an|its|their|northern|southern|eastern|western|central|north|south|east|west|occupied|neighbouring|neighboring|several|two|three|targets? in|parts of|sites? in|cities in|\\w+'s)\\s+){0,2}";
+  const TARGET_BEFORE = new RegExp(`\\b(on|at|against|into|in|inside|toward|towards|over|targeting|targeted|targets?|hits?|hitting|strikes?|struck|striking|attacks?|attacked|attacking|bomb(s|ed|ing)?|pound(s|ed|ing)?|shell(s|ed|ing)?|raids?|raided)\\s+${MOD}$`, "i");
+  const ORIGIN_BEFORE = new RegExp(`\\b(from|by)\\s+${MOD}$`, "i");
+  const ATTACK_NEXT = "(strikes?|struck|attacks?|attacked|launch(es|ed)?|fire[sd]?|missiles?|drones?|rockets?|bomb(s|ed|ing)?|pound(s|ed)?|shell(s|ed|ing)?|hits?|target(s|ed)?|forces|army|military|jets|warplanes|barrage|bombardment|offensive|raids?|air ?strikes?|airstrikes?)";
+  const ORIGIN_AFTER = new RegExp(`^('s?|-(led|backed))?\\s+((air|missile|drone|rocket|ballistic|cruise|military|army|armed|naval|forces?|fighters?|militants?|rebels?|troops|soldiers|taliban|new|deadly|massive|overnight|retaliatory)\\s+){0,2}${ATTACK_NEXT}\\b`, "i");
+  const TARGET_AFTER = /^\s+((is|was|were|are|has been|have been)\s+)?(hit|struck|targeted|attacked|bombed|shelled|pounded)\s+by\b|^\s+(comes? |came )?under\s+(\w+\s+){0,2}(attack|fire)\b/i;
+  // A bare place name before a single strike ("Gaza strike kills...") is where it landed.
+  const PLACE_STRIKE = /^\s+(air ?strike|airstrike|strike|attack|bombing|raid|blast)\b(?!s)/i;
+  const PLACE_END = /(stan|tehran|sudan|taiwan|japan|oman|jordan|amman|bhutan|azerbaijan|yerevan)$/i;
+  const isPeople = (w) => /^(US|U\.S\.|USA|UK|U\.K\.|IDF|hamas|hezbollah|houthis?|taliban|pentagon|kremlin|white house)$/i.test(w)
+    || (/(i|is|ians?|eans?|ese|ish|ench|utch|ans|an)$/i.test(w) && !PLACE_END.test(w));
+
+  // Spots more exact than a country's middle, for cities in the news and big countries.
+  const PLACES = [
+    [/\b(kyiv|kiev)\b/i, [30.52, 50.45]], [/\bkharkiv\b/i, [36.23, 49.99], "Ukraine"], [/\bodesa\b/i, [30.72, 46.48], "Ukraine"],
+    [/\bmoscow\b/i, [37.62, 55.75]], [/\bgaza\b/i, [34.42, 31.45]], [/\bwest bank\b/i, [35.25, 31.95]],
+    [/\b(tel aviv)\b/i, [34.78, 32.08]], [/\bjerusalem\b/i, [35.21, 31.77]], [/\bbeirut\b/i, [35.5, 33.89]],
+    [/\bsanaa\b/i, [44.21, 15.35]], [/\bhodeidah\b/i, [42.95, 14.8], "Yemen"], [/\briyadh\b/i, [46.72, 24.71]],
+    [/\btehran\b/i, [51.39, 35.69]], [/\bdamascus\b/i, [36.29, 33.51]], [/\bbaghdad\b/i, [44.36, 33.31]],
+    [/\bkhartoum\b/i, [32.53, 15.5]], [/\bel fasher\b/i, [25.35, 13.63], "Sudan"], [/\bdoha\b/i, [51.53, 25.29]],
+    [/\b(dubai|abu dhabi)\b/i, [54.9, 24.8]], [/\bkabul\b/i, [69.18, 34.53]], [/\bislamabad\b/i, [73.05, 33.68]],
+    [/\btaipei\b/i, [121.56, 25.03]], [/\bseoul\b/i, [126.98, 37.57]], [/\btripoli\b/i, [13.19, 32.89], "Libya"],
+    [/\bmogadishu\b/i, [45.32, 2.05]],
+  ];
+  // Where to aim when only the country is known (big countries' middles are far from the news).
+  const ANCHOR = { Russia: [38, 55], "United States of America": [-77, 38.9], China: [116, 36], Canada: [-79, 45],
+    Israel: [34.85, 31.9], Palestine: [34.42, 31.45], Brazil: [-47.9, -15.8], Australia: [149, -35], India: [77.2, 28.6] };
+
+  // Every place in `text` where a country is named: [start, end, country].
+  function spans(text) {
+    const out = [];
+    for (const c of g.countries) {
+      for (const re of c.res) {
+        const gre = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+        for (const m of text.matchAll(gre)) {
+          const word = m[2] ?? m[1] ?? m[0];
+          const start = m.index + m[0].length - word.length;
+          out.push({ start, end: start + word.length, word, c });
+        }
+      }
+    }
+    return out.sort((a, b) => a.start - b.start);
+  }
+
+  function readSentence(s) {
+    let origin = null, target = null;
+    for (const sp of spans(s)) {
+      sp.s = s;
+      const before = s.slice(Math.max(0, sp.start - 60), sp.start), after = s.slice(sp.end, sp.end + 60);
+      const placeName = !isPeople(sp.word);
+      let role = null;
+      if (TARGET_AFTER.test(after)) role = "target";
+      else if (placeName && PLACE_STRIKE.test(after) && !/'s$/.test(sp.word)) role = "target";
+      else if (ORIGIN_AFTER.test(after)) role = "origin";
+      else if (ORIGIN_BEFORE.test(before)) role = "origin";
+      else if (TARGET_BEFORE.test(before) && (STRONG.test(s.slice(0, sp.start)) || WEAK.test(s.slice(0, sp.start)))) role = "target";
+      if (role === "origin" && !origin && sp.c !== target?.c) origin = sp;
+      if (role === "target" && !target && sp.c !== origin?.c) target = sp;
+    }
+    return { origin, target };
+  }
+
+  function pointFor(sp) {
+    const hit = PLACES.find(([re, , country]) => !country && re.test(sp.word))
+      || PLACES.find(([re, , country]) => country === sp.c.name && re.test(sp.s));
+    return hit ? hit[1] : ANCHOR[sp.c.name] || sp.c.centroid;
+  }
+
+  // One story -> { origin, target } countries, or null when it isn't about a strike.
+  function readStrike(item) {
+    const tidy = (t) => (t || "").replace(/\bU\.S\./g, "US").replace(/\bU\.K\./g, "UK");
+    const title = tidy(item.title);
+    const sentences = [title, ...(tidy(item.summary).match(/[^.!?]+[.!?]*/g) || []).slice(0, 3)];
+    let origin = null, target = null;
+    for (const s of sentences) {
+      if (!isAttack(s)) continue;
+      const r = readSentence(s);
+      origin ||= r.origin && r.origin.c !== target?.c ? r.origin : null;
+      target ||= r.target && r.target.c !== origin?.c ? r.target : null;
+      if (origin && target) break;
+    }
+    if (!target && isAttack(title)) {
+      // One country in an attack headline with nobody named as firing: that's where it hit.
+      const named = [...new Map(spans(title).map((sp) => [sp.c.name, { ...sp, s: title }])).values()];
+      if (named.length === 1 && named[0].c !== origin?.c && !origin) target = named[0];
+    }
+    if (!target) return null;
+    return {
+      origin: origin && { c: origin.c, p: pointFor(origin) },
+      target: { c: target.c, p: pointFor(target) },
+    };
+  }
+
+  function computeStrikes() {
+    const seen = new Map();
+    const stories = worldStories().slice().sort((a, b) => new Date(b.item.published || 0) - new Date(a.item.published || 0));
+    for (const { item, key } of stories) {
+      const s = readStrike(item);
+      if (!s) continue;
+      const id = `${s.origin?.c.name || ""}>${s.target.c.name}`;
+      if (seen.has(id)) { seen.get(id).n++; continue; }
+      seen.set(id, { ...s, item, key, n: 1 });
+    }
+    return [...seen.values()].slice(0, 8);
+  }
 
   let initPromise = null;
   function init() {
@@ -148,13 +265,16 @@
       });
       if (hits.length) { g.counts.set(c.name, hits.length); g.stories.set(c.name, hits); }
     }
+    g.strikes = computeStrikes();
+    buildStrikes();
     draw();
     renderChips();
+    renderStrikeList();
   }
 
   // ---------- drawing ----------
 
-  let svg, projection, path, sphere, landLayer, labelLayer, size = 0;
+  let svg, projection, path, sphere, landLayer, strikeLayer, labelLayer, size = 0;
 
   function el(tag, attrs = {}, parent) {
     const n = document.createElementNS(NS, tag);
@@ -178,6 +298,7 @@
       c.node.dataset.name = c.name;
     }
     el("circle", { class: "shine", fill: "url(#shine)", "pointer-events": "none" }, svg);
+    strikeLayer = el("g", { class: "strikes" }, svg);
     labelLayer = el("g", { class: "labels", "pointer-events": "none" }, svg);
     projection = d3.geoOrthographic().clipAngle(90).precision(0.6);
     path = d3.geoPath(projection);
@@ -239,7 +360,121 @@
       const t = el("text", { x, y, "text-anchor": "middle", dy: "0.35em" }, labelLayer);
       t.textContent = c.display;
     }
+    drawStrikes();
   }
+
+  // ---------- strike animation ----------
+  // Each strike loops: a missile flies along a raised arc from origin to target, then a flash and
+  // a ring burst where it lands. The red danger zone around the target pulses the whole time.
+
+  const STRIKE_MODES = new Set(["explore", "conflict"]);
+  const CYCLE = 4200, FLIGHT = 0.42, BLAST = 0.3, SAMPLES = 48;
+  const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const showStrikes = () => STRIKE_MODES.has(g.mode) && g.strikes.length > 0;
+
+  function buildStrikes() {
+    strikeLayer.innerHTML = "";
+    if (!STRIKE_MODES.has(g.mode)) return;
+    g.strikes.forEach((s, i) => {
+      const grp = el("g", { class: "strike" }, strikeLayer);
+      s.nodes = {
+        zone: el("path", { class: "strike-zone" }, grp),
+        track: s.origin ? el("path", { class: "strike-track" }, grp) : null,
+        trail: s.origin ? el("path", { class: "strike-trail" }, grp) : null,
+        head: s.origin ? el("circle", { class: "strike-head", r: 3.6 }, grp) : null,
+        ring: el("circle", { class: "strike-ring" }, grp),
+        core: el("circle", { class: "strike-core" }, grp),
+        hit: el("circle", { class: "strike-hit", r: 14, "data-strike": i }, grp),
+      };
+      s.zoneGeo = d3.geoCircle().center(s.target.p).radius(3)();
+      if (s.origin) {
+        const interp = d3.geoInterpolate(s.origin.p, s.target.p);
+        s.samples = d3.range(SAMPLES + 1).map((k) => interp(k / SAMPLES));
+        // Longer flights arc higher above the surface.
+        s.lift = Math.min(0.32, 0.06 + d3.geoDistance(s.origin.p, s.target.p) * 0.35);
+      }
+    });
+  }
+
+  // Screen points along the arc, lifted off the globe toward the middle of the flight.
+  function arcPoints(s, upto) {
+    const center = [-g.rotate[0], -g.rotate[1]], [cx, cy] = projection.translate();
+    const pts = [];
+    for (let k = 0; k <= upto; k++) {
+      const ll = s.samples[k];
+      if (d3.geoDistance(ll, center) > Math.PI / 2 - 0.02) { pts.push(null); continue; }
+      const [x, y] = projection(ll), h = 1 + s.lift * Math.sin(Math.PI * k / SAMPLES);
+      pts.push([cx + (x - cx) * h, cy + (y - cy) * h]);
+    }
+    return pts;
+  }
+  const line = (pts) => {
+    let d = "", pen = false;
+    for (const p of pts) {
+      if (!p) { pen = false; continue; }
+      d += `${pen ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`;
+      pen = true;
+    }
+    return d;
+  };
+
+  function drawStrikes(now = performance.now()) {
+    if (!strikeLayer || !STRIKE_MODES.has(g.mode)) return;
+    const center = [-g.rotate[0], -g.rotate[1]], still = calm();
+    g.strikes.forEach((s, i) => {
+      const n = s.nodes;
+      if (!n) return;
+      n.zone.setAttribute("d", path(s.zoneGeo) || "");
+      const seen = d3.geoDistance(s.target.p, center) < Math.PI / 2 - 0.03;
+      const [tx, ty] = seen ? projection(s.target.p) : [-99, -99];
+      const t = still ? 1 : ((now + i * 650) % CYCLE) / CYCLE;
+      if (s.origin) {
+        n.track.setAttribute("d", line(arcPoints(s, SAMPLES)));
+        if (t < FLIGHT) {
+          const k = Math.round((t / FLIGHT) * SAMPLES);
+          const pts = arcPoints(s, k);
+          n.trail.setAttribute("d", line(pts.slice(Math.max(0, k - 16))));
+          const tip = pts[k];
+          n.head.setAttribute("opacity", tip ? 1 : 0);
+          if (tip) { n.head.setAttribute("cx", tip[0]); n.head.setAttribute("cy", tip[1]); }
+        } else {
+          n.trail.setAttribute("d", "");
+          n.head.setAttribute("opacity", 0);
+        }
+      }
+      // Landing: a bright flash, then a ring that spreads and fades.
+      const b = s.origin ? (t - FLIGHT) / BLAST : (t < BLAST ? t / BLAST : -1);
+      const blasting = !still && b >= 0 && b <= 1;
+      for (const c of [n.ring, n.core, n.hit]) { c.setAttribute("cx", tx); c.setAttribute("cy", ty); }
+      n.ring.setAttribute("r", blasting ? 3 + b * 26 : 0);
+      n.ring.setAttribute("opacity", blasting ? (1 - b).toFixed(2) : 0);
+      n.core.setAttribute("r", blasting ? 6 * (1 - b) + 2.5 : 2.6);
+      n.core.setAttribute("opacity", seen ? 1 : 0);
+      n.core.classList.toggle("flash", blasting && b < 0.35);
+      n.hit.style.display = seen ? "" : "none";
+    });
+  }
+
+  function renderStrikeList() {
+    const { esc, timeAgo } = window.NEWS_APP;
+    const box = $("#globe-strikes");
+    if (!showStrikes()) { box.innerHTML = ""; box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = `<h3 class="label">Strikes in the news</h3>` + g.strikes.map((s, i) => `
+      <a class="strike-row" href="#" data-strike="${i}">
+        <span class="strike-route"><span class="strike-icon" aria-hidden="true"></span>${s.origin ? `${esc(s.origin.c.display)} <span class="arrow">→</span> ` : ""}${esc(s.target.c.display)}${s.n > 1 ? `<span class="n">${s.n}</span>` : ""}</span>
+        <span class="strike-title serif">${esc(s.item.title)}</span>
+        <span class="story-meta">${esc(s.item.source)} · ${esc(timeAgo(s.item.published))}</span>
+      </a>`).join("") + `<p class="caption muted">Worked out from headlines, so a few may be missed or misread.</p>`;
+  }
+
+  function openStrike(i) {
+    const s = g.strikes[i];
+    if (!s) return;
+    rotateTo(s.target.p);
+    window.NEWS_APP.openStory(s.item.link);
+  }
+
 
   // ---------- interaction ----------
 
@@ -281,8 +516,9 @@
       const wasTap = start && !start.moved && !pinch;
       pointers.delete(e.pointerId);
       if (wasTap && e.type === "pointerup") {
-        const name = document.elementFromPoint(e.clientX, e.clientY)?.dataset?.name;
-        if (name) openCountry(name);
+        const hit = document.elementFromPoint(e.clientX, e.clientY)?.dataset;
+        if (hit?.strike) openStrike(+hit.strike);
+        else if (hit?.name) openCountry(hit.name);
       }
       if (pointers.size < 2) pinch = null;
       // After a pinch, the finger still down carries on turning from here.
@@ -299,10 +535,10 @@
   // Gentle spin while nobody is touching the globe.
   function spin() {
     if (!g.visible) { g.raf = 0; return; }
-    if (Date.now() - g.lastInteract > 4000 && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (Date.now() - g.lastInteract > 4000 && !calm()) {
       g.rotate = [g.rotate[0] + 0.08 / g.zoom, g.rotate[1]];
       draw();
-    }
+    } else if (showStrikes() && !calm()) drawStrikes();
     g.raf = requestAnimationFrame(spin);
   }
 
@@ -368,7 +604,8 @@
     const byName = new Map(g.countries.map((c) => [c.name, c.display]));
     const top = [...g.counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)
       .map(([name, n]) => `${byName.get(name)} (${n})`);
-    return { mode: mode.label, countries: top, open: g.open };
+    const strikes = g.strikes.map((s) => `${s.origin ? `${s.origin.c.display} -> ` : ""}${s.target.c.display}: ${s.item.title}`);
+    return { mode: mode.label, countries: top, strikes, open: g.open };
   };
 
   document.addEventListener("click", (e) => {
@@ -376,6 +613,8 @@
     if (zb) { setZoom(zb.dataset.zoom === "in" ? g.zoom * 1.6 : zb.dataset.zoom === "out" ? g.zoom / 1.6 : 1); return; }
     const mode = e.target.closest("[data-mode]");
     if (mode) { g.mode = mode.dataset.mode; renderModes(); compute(); return; }
+    const row = e.target.closest(".strike-row");
+    if (row) { e.preventDefault(); openStrike(+row.dataset.strike); return; }
     const chip = e.target.closest("[data-country]");
     if (chip) { openCountry(chip.dataset.country); return; }
     const brief = e.target.closest("[data-country-brief]");
